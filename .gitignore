@@ -1,0 +1,8 @@
+# R environment files
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# RStudio project
+*.Rproj
