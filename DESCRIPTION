@@ -1,0 +1,11 @@
+Package: make
+Type: Package
+Title: Make utility in R
+Version: 0.1.0
+Author@R: c(person("Junling", "Ma", email = "junlingm@uvic.ca", role = c("aut", "cre")))
+Maintainer: Junling Ma <junlingm@uvic.ca>
+Description: This package provides a make utility similar to the venerable make, but 
+  native in R.  
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
