@@ -130,7 +130,7 @@ BaseConnection <- setRefClass("BaseConnection",
   )
 )
 
-connection.base = BaseConnection()
+connection.base <- BaseConnection()
 
 #' the load hook
 .onLoad <- function(libname, pkgname) {
