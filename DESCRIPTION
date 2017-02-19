@@ -9,3 +9,9 @@ Description: This package provides a make utility similar to the venerable make,
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
+Collate:
+	recipe.R
+  rule.R
+	make.rule.R
+  make.R
+  hooks.R
