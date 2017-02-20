@@ -32,14 +32,10 @@ setMethod(make,
 )
 
 #' check if the target file is older than the depend file
-#' @param target the target file name
-#' @param depend the depend file name, which must exist
+#' @param target the target file name, which must exist
+#' @param depend the depend file name
 #' @return logical
 stale <- function(target, depend) {
-  target.info = file.info(target)
-  # check if target does not exist
-  if (length(which(!is.na(target.info$size))) == 0)
-    return (FALSE)
   depend.info = file.info(depend)
   if (length(which(!is.na(target.info$size))) == 0)
     return (TRUE)

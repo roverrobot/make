@@ -73,15 +73,20 @@ setMethod(make,
     }
     if (is.null(stem)) return(NULL)
     depends = sub("%", stem, .Object@depend)
-    if (length(depends) == 0) {
-      old = TRUE
-    } else {
-      old = FALSE
+    old = FALSE
+    # if a file depends on nothing, it does not need to be rebuilt
+    if (length(depends) > 0) {
       for (dep in depends) {
         maker$make(dep)
         old = old || stale(file, dep)
       }
     }
+    # check if target does not exist, always build
+    target.info = file.info(file)
+    if (length(which(!is.na(target.info$size))) == 0)
+      old = TRUE
+    # if force, always build.
+    if (force) old = TRUE
     if (!old) return(TRUE)
     run(.Object@recipe, file, depends)
   }
