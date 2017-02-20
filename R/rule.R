@@ -1,34 +1,18 @@
 ## the most important method that it has is make
-Rule <- setClass("Rule",
-  slots = c(name="character"),
-  prototype = list(
-    name = ""
+Rule <- setRefClass(
+  "Rule",
+  fields = c(name="character"),
+  methods = list(
+    initialize = function(name="", replace=FALSE) {
+      .self$name <<- name
+      maker$add.rule(.self, replace)
+    }
+    ,
+    # make will fail for any file
+    make = function(file, force=FALSE) {
+      NULL
+    }
   )
-)
-
-# create a method to get the value of active
-setMethod(initialize,
-  signature = c("Rule"),
-  definition = function(.Object, name="", replace=FALSE) {
-    .Object@name <- name
-    maker$add.rule(.Object, replace)
-    invisible(.Object)
-  }
-)
-
-# create a method to get the value of active
-setGeneric(name="make",
-  def=function(.Object, file, force=FALSE) {
-    "returning NULL means do not know how to make the file. TRUE/FALSE means success/failure."
-    standardGeneric("make")
-  }
-)
-
-setMethod(make,
-  signature = c("Rule"),
-  definition = function(.Object, file, force=FALSE) {
-    NULL
-  }
 )
 
 #' check if the target file is older than the depend file

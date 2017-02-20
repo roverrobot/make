@@ -8,7 +8,7 @@ Maker <- setRefClass(
     make = function(file) {
       result = NULL
       for (rule in rules) {
-        result = make::make(rule, file=file)
+        result = rule$make(file=file)
         if (!is.null(result)) break
       }
       if (is.null(result)) {
@@ -22,7 +22,7 @@ Maker <- setRefClass(
     add.rule = function(rule, replace=FALSE) {
       if (!is(rule, "Rule"))
         warning("Skipped adding the rule ", rule, ", which is not an object of the class Rule.")
-      name = rule@name
+      name = rule$name
       if (name == "") {
         rules <<- c(rules, list(rule))
       } else if (is.null(rules[[name]]) || replace) {

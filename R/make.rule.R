@@ -2,17 +2,48 @@
 
 setClassUnion("RecipeOrNULL", members=c("Recipe", "NULL"))
 
-makeRule <- setClass("makeRule",
+makeRule <- setRefClass("makeRule",
   contains = c("Rule"),
-  slots = c(
+  fields = c(
     target = "character",
     depend = "list",
     recipe = "RecipeOrNULL"
   ),
-  prototype = list(
-    target = "",
-    depend = list(),
-    recipe = NULL
+  methods = list(
+    initialize = function(target="", depend="", recipe=NULL, ...) {
+      callSuper(...)
+      .self$target <<- target
+      .self$depend <<- depend
+      .self$recipe <<- recipe
+    }
+    ,
+    make = function(file, force = FALSE) {
+      # match file to targets, which can contain a stem, e.g., dir/%.c
+      patterns = strsplit(target, "\\s")[[1]]
+      stem = NULL
+      for (pattern in patterns) {
+        stem = match.stem(pattern, file)
+        if (!is.null(stem)) break
+      }
+      if (is.null(stem)) return(NULL)
+      deps = sub("%", stem, depend)
+      old = FALSE
+      # if a file depends on nothing, it does not need to be rebuilt
+      if (length(deps) > 0) {
+        for (dep in deps) {
+          maker$make(dep)
+          old = old || stale(file, dep)
+        }
+      }
+      # check if target does not exist, always build
+      target.info = file.info(file)
+      if (length(which(!is.na(target.info$size))) == 0)
+        old = TRUE
+      # if force, always build.
+      if (force) old = TRUE
+      if (!old) return(TRUE)
+      run(recipe, file, depends)
+    }
   )
 )
 
@@ -50,44 +81,3 @@ match.stem = function(pattern, file) {
   }
   stem
 }
-
-setMethod(initialize,
-    signature <- c("makeRule"),
-    definition <- function(.Object, ..., target="", depend="", recipe=NULL) {
-      .Object@target <- target
-      .Object@depend <- depend
-      .Object@recipe <- recipe
-      callNextMethod(.Object, ...)
-    }
-)
-
-setMethod(make,
-  signature = c("makeRule"),
-  definition = function(.Object, file, force = FALSE) {
-    # match file to targets, which can contain a stem, e.g., dir/%.c
-    patterns = strsplit(.Object@target, "\\s")[[1]]
-    stem = NULL
-    for (pattern in patterns) {
-      stem = match.stem(pattern, file)
-      if (!is.null(stem)) break
-    }
-    if (is.null(stem)) return(NULL)
-    depends = sub("%", stem, .Object@depend)
-    old = FALSE
-    # if a file depends on nothing, it does not need to be rebuilt
-    if (length(depends) > 0) {
-      for (dep in depends) {
-        maker$make(dep)
-        old = old || stale(file, dep)
-      }
-    }
-    # check if target does not exist, always build
-    target.info = file.info(file)
-    if (length(which(!is.na(target.info$size))) == 0)
-      old = TRUE
-    # if force, always build.
-    if (force) old = TRUE
-    if (!old) return(TRUE)
-    run(.Object@recipe, file, depends)
-  }
-)

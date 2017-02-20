@@ -1,5 +1,4 @@
 export("getRules")
 export("clearRules")
-export("make")
 export("makeRule")
 export("Recipe")
