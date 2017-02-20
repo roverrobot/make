@@ -141,3 +141,14 @@ connection.base <- BaseConnection()
 .onUnload <- function(libpath) {
   connection.base$restore()
 }
+
+#' the detach hook
+.onDetach <- function(libpath) {
+  clearRules()
+}
+
+#' the attach hook
+.onAttach <- function(libpath, pkgname) {
+  if (file.exists("Makefile.R"))
+    tryCatch(source("Makefile.R"))
+}
