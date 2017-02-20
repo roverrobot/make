@@ -10,7 +10,7 @@ makeRule <- setRefClass("makeRule",
     recipe = "RecipeOrNULL"
   ),
   methods = list(
-    initialize = function(target="", depend="", recipe=NULL, ...) {
+    initialize = function(target="", depend=list(), recipe=NULL, ...) {
       callSuper(...)
       .self$target <<- target
       .self$depend <<- depend
@@ -20,24 +20,28 @@ makeRule <- setRefClass("makeRule",
     make = function(file, force = FALSE) {
       # match file to targets, which can contain a stem, e.g., dir/%.c
       patterns = strsplit(target, "\\s")[[1]]
-      stem = NULL
+      stem <- NULL
+      matched <- FALSE
       for (pattern in patterns) {
-        stem = match.stem(pattern, file)
-        if (!is.null(stem)) break
+        match <- match.stem(pattern, file)
+        stem <- match$stem
+        matched <- match$match
+        if (matched) break
       }
-      if (is.null(stem)) return(NULL)
-      deps = sub("%", stem, depend)
-      if (stem != "") {
-        rule <- makeRule(file, deps, recipe)
+      if (!matched) return(NULL)
+      # if stem is not NULL, then this pattern is an implict rule
+      # we create a specific rule for this file.
+      if (!is.null(stem)) {
+        deps <- as.list(sub("%", stem, depend))
+        rule <- makeRule(name=file, target=file, depend=deps,
+                         recipe=recipe, replace=TRUE, first.rule=TRUE)
         return(rule$make(file, force))
       }
       old = FALSE
       # if a file depends on nothing, it does not need to be rebuilt
-      if (length(deps) > 0) {
-        for (dep in deps) {
-          maker$make(dep)
-          old = old || stale(file, dep)
-        }
+      for (dep in depend) {
+        maker$make(dep)
+        old = old || stale(file, dep)
       }
       # check if target does not exist, always build
       target.info = file.info(file)
@@ -46,7 +50,7 @@ makeRule <- setRefClass("makeRule",
       # if force, always build.
       if (force) old = TRUE
       if (!old) return(TRUE)
-      run(recipe, file, depends)
+      run(recipe, file, depend)
     }
   )
 )
@@ -54,8 +58,16 @@ makeRule <- setRefClass("makeRule",
 #' match file to a pattern, which can contain a stem, e.g., dir/%.c
 #' @param pattern the pattern to match to
 #' @param file the file name
-#' @return a string for the stem, if matched, or NULL is not matched
+#' @return a list, $match denoting if file matches pattern, and $stem is NULL if pattern does not contain %, or a string for the stem (matched part of %).
 match.stem = function(pattern, file) {
+  # if the pattern is not an implicit rule, i.e., does not contain %, then
+  # we simply compare the canonical paths of pattern and file
+  if (!grepl("%", pattern)) {
+    pattern <- normalizePath(pattern, mustWork = FALSE)
+    file <- normalizePath(file, mustWork = FALSE)
+    return(list(match=pattern == file, stem = NULL))
+  }
+  # if we read here, then the pattern contains %, and is thus an implicit rule
   parts = strsplit(pattern, "%")[[1]]
   if (length(parts) > 2)
     warning("Rule ", .Object@rule, " has an invalid pattern in the target.",
@@ -74,14 +86,15 @@ match.stem = function(pattern, file) {
     } else n2 = NULL
   }
   if (!match) {
+    # if file does not match, check if the canonical path of file matches.
     file.abs = normalizePath(file, mustWork = FALSE)
-    if (file.abs != file) {
-      stem = match.stem(pattern, file.abs)
-    } else stem = NULL
+    if (file.abs != file)
+      return(match.stem(pattern, file.abs))
+    stem <- NULL
   } else {
     if (is.null(n2)) {
       stem = substring(file, n1+1)
     } else stem = substr(file, n1 + 1, n2 - 1)
   }
-  stem
+  list(match=match, stem=stem)
 }
