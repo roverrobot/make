@@ -27,6 +27,10 @@ makeRule <- setRefClass("makeRule",
       }
       if (is.null(stem)) return(NULL)
       deps = sub("%", stem, depend)
+      if (stem != "") {
+        rule <- makeRule(file, deps, recipe)
+        return(rule$make(file, force))
+      }
       old = FALSE
       # if a file depends on nothing, it does not need to be rebuilt
       if (length(deps) > 0) {
