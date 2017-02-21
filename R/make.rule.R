@@ -6,23 +6,41 @@ makeRule <- setRefClass("makeRule",
   contains = c("Rule"),
   fields = c(
     target = "character",
-    depend = "list",
+    depend = "character",
     recipe = "RecipeOrNULL"
   ),
   methods = list(
-    initialize = function(target="", depend=list(), recipe=NULL, ...) {
+    initialize = function(relation=NULL, recipe=NULL, .target=NULL, .depend=c(), ...) {
+      if (is.null(relation) && is.null(target)) {
+        stop("Either relation or target must be specified")
+      }
+      if (is.null(.target)) {
+        if (!inherits(relation, "formula"))
+          stop("relation must be a formula")
+        # split by +
+        t <- strsplit(as.character(terms(relation,
+                                         allowDotAsName = TRUE,
+                                         keep.order = TRUE)),
+                      split="\\+(?=(?:[^`]*`[^`]*`)*[^`]*$)",
+                      perl=TRUE)
+        t <- sapply(t, function(s) {trimws(gsub("`", "", s))})
+        .target <- t[[2]][which(t[[2]] != ".")]
+        .depend <- c(t[[3]][which(t[[3]] != ".")], .depend)
+      }
+      if (length(.target) == 0)
+        stop("a target must be specified.")
+
       callSuper(...)
-      .self$target <<- target
-      .self$depend <<- depend
+      target <<- .target
+      depend <<- .depend
       .self$recipe <<- recipe
     }
     ,
     make = function(file, force = FALSE) {
       # match file to targets, which can contain a stem, e.g., dir/%.c
-      patterns = strsplit(target, "\\s")[[1]]
       stem <- NULL
       matched <- FALSE
-      for (pattern in patterns) {
+      for (pattern in target) {
         match <- match.stem(pattern, file)
         stem <- match$stem
         matched <- match$match
@@ -32,8 +50,8 @@ makeRule <- setRefClass("makeRule",
       # if stem is not NULL, then this pattern is an implict rule
       # we create a specific rule for this file.
       if (!is.null(stem)) {
-        deps <- as.list(sub("%", stem, depend))
-        rule <- makeRule(name=file, target=file, depend=deps,
+        deps <- sub("%", stem, depend)
+        rule <- makeRule(name=file, .target=file, .depend=deps,
                          recipe=recipe, replace=TRUE, first.rule=TRUE)
         return(rule$make(file, force))
       }
