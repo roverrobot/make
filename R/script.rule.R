@@ -10,8 +10,8 @@ containsFile <- function (files, file) {
 scriptRule <- setRefClass("scriptRule",
   contains = c("makeRule"),
   methods = list(
-    initialize = function(..., script, interpreter="/bin/sh") {
-      callSuper(..., recipe= scriptRecipe(script, interpreter))
+    initialize = function(..., script, interpreter="") {
+      callSuper(..., recipe = scriptRecipe(script=script, interpreter=interpreter))
       if (!containsFile(depend, script))
         depend <<- c(depend, script)
     }
@@ -22,21 +22,33 @@ scriptRecipe <- setRefClass(
   "scriptRecipe",
   contains = c("Recipe"),
   fields = c(
-    script.file = "character"
+    script = "character",
+    interpreter = "character"
   ),
   methods = list(
-    initialize = function(script.file, interpreter="/bin/sh") {
-      .self$script.file <<- script.file
-      callSuper(script="", interpreter=interpreter)
-    }
-    ,
     run = function(target, depend) {
-      if (file.exists(script.file)) {
-        script <<- readLines(script.file)
-      } else stop("The script file ", script, " does not exist")
-      result = callSuper(target, depend)
-      script <<- ""
-      result
+      if (!file.exists(script))
+        stop("The recipe script ", script, " does not exist.")
+      # if the interpreter is not specified, see if we can read fromthe script
+      if (nchar(interpreter) == 0) {
+        first.line = readLines(script, n=1)
+        match <- regexpr("^#!\\s*(?'handler'.*?)\\s*(\\n|$)", first.line[[1]], perl=TRUE)
+        if (match == 1) {
+          start <- attr(match, "capture.start")["handler"]
+          length <- attr(match, "capture.length")["handler"]
+          interpreter <<- substr(script[[1]], start, start + length - 1)
+        }
+      }
+      # if still no interpreter, see if an option make:interpreter is set
+      if (nchar(interpreter) == 0) {
+        opt = getOption("make:interpreter")
+        if (is.character(opt)) interpreter <<- opt
+      }
+      # the default interpreter is /bin/sh
+      if (nchar(interpreter) == 0) {
+        interpreter <<- "/bin/sh --"
+      }
+      system(paste(c(interpreter, script, target, depend), collapse = " ")) == 0
     }
   )
 )
