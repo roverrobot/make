@@ -10,8 +10,9 @@ License: GPL-3
 Encoding: UTF-8
 LazyData: true
 Collate:
-	recipe.R
   rule.R
+	recipe.R
 	make.rule.R
+	script.rule.R
   make.R
   hooks.R

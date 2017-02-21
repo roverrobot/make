@@ -6,17 +6,17 @@ Recipe <- setRefClass(
     interpreter = "character"
   ),
   methods = list(
-    initialize = function(script, interpreter = NULL) {
+    initialize = function(script, interpreter = "") {
       .self$script <<- script
       .self$interpreter <<- interpreter
       match <- regexpr("^#!\\s*(?'handler'.*?)\\s*(\\n|$)", script[[1]], perl=TRUE)
       if (match == 1) {
         start <- attr(match, "capture.start")["handler"]
         length <- attr(match, "capture.length")["handler"]
-        if (is.null(interpreter))
+        if (nchar(interpreter) == 0)
           .self$interpreter <<- substr(script[[1]], start, start + length - 1)
       }
-      if (is.null(.self$interpreter))
+      if (nchar(.self$interpreter) == 0)
         .self$interpreter <<- "/bin/sh"
     }
     ,
@@ -28,8 +28,7 @@ Recipe <- setRefClass(
         is.na(result) || result == 0
       }
       # check if a handler is specified in the first line of the script
-      result <- try(exec())
-      result
+      try(exec())
     }
   )
 )

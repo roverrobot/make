@@ -64,20 +64,18 @@ makeRule <- setRefClass("makeRule",
                          replace=TRUE, first.rule=TRUE)
         return(rule$make(file, force))
       }
-      old = FALSE
-      # if a file depends on nothing, it does not need to be rebuilt
+      target.info = file.info(file)
+      target.exists = length(which(!is.na(target.info))) > 0
+      # if force or file does not exist, always build.
+      old = !target.exists || force
       for (dep in depend) {
         maker$make(dep)
-        old = old || stale(file, dep)
+        depend.info = file.info(dep)
+        if (target.exists)
+          old = old || (depend.info$mtime > target.info$mtime)
       }
-      # check if target does not exist, always build
-      target.info = file.info(file)
-      if (length(which(!is.na(target.info$size))) == 0)
-        old = TRUE
-      # if force, always build.
-      if (force) old = TRUE
       if (!old) return(TRUE)
-      run(recipe, file, depend)
+      recipe$run(file, depend)
     }
   )
 )
