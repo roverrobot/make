@@ -77,7 +77,7 @@ makeRule <- setRefClass("makeRule",
           old = old || (depend.info$mtime > target.info$mtime)
       }
       if (!old) return(TRUE)
-      try(recipe$run(file, depend))
+      recipe$run(file, depend)
     }
   )
 )

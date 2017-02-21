@@ -14,8 +14,10 @@ Maker <- setRefClass(
       if (is.null(result)) {
         if (file.exists(file)) return(invisible(NULL))
         stop("do not know how to make file: ", file, call. = FALSE)
-      } else if (!result)
+      } else if (!result) {
+        if (file.exists(file)) file.remove(file)
         stop("failed to make file: ", file, call. = FALSE)
+      }
       TRUE
     }
     ,
