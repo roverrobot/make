@@ -3,9 +3,12 @@ Rule <- setRefClass(
   "Rule",
   fields = c(name="character"),
   methods = list(
-    initialize = function(name="", replace=FALSE, first.rule = FALSE) {
-      .self$name <<- name
+    initialize = function(replace=FALSE, first.rule = FALSE) {
       maker$add.rule(.self, replace, first.rule)
+    }
+    ,
+    getTarget = function() {
+      NULL
     }
     ,
     # make will fail for any file

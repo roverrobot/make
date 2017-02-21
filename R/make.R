@@ -21,20 +21,17 @@ Maker <- setRefClass(
     ,
     add.rule = function(rule, replace=FALSE, first.rule=FALSE) {
       if (!is(rule, "Rule"))
-        warning("Skipped adding the rule ", rule, ", which is not an object of the class Rule.")
-      name <- rule$name
-      add <- NULL
-      if (name == "") {
-        add <- list(rule)
-      } else if (is.null(rules[[name]])) {
+        stop("A rule must be an object of the class Rule.")
+      name <- rule$getTarget()
+      if (is.null(name) || length(name) == 0)
+        stop("A rule must have a target")
+      if (is.null(rules[[name]])) {
         add <- list()
         add[[name]] <- rule
+        rules <<- if (first.rule) c(add, rules) else c(rules, add)
       } else if (replace) {
         rules[[name]] <<- rule
-      } else warning("A rule named ", name, "already exits. Skip adding the new rule.")
-      if (!is.null(add)) {
-        rules <<- if (first.rule) c(add, rules) else c(rules, add)
-      }
+      } else stop("A rule for a target ", name, "already exits.")
     }
   )
 )

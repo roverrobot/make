@@ -30,15 +30,19 @@ makeRule <- setRefClass("makeRule",
       if (length(.target) == 0)
         stop("a target must be specified.")
 
-
-      callSuper(...)
       target <<- .target[[1]]
       depend <<- .depend
       .self$recipe <<- recipe
+      callSuper(...)
 
+      # set up a rule for each target specified
       for (targ in .target[-1]) {
         makeRule(recipe=recipe, .target=targ, .depend=.depend, ...)
       }
+    }
+    ,
+    getTarget = function() {
+      target
     }
     ,
     make = function(file, force = FALSE) {
@@ -56,8 +60,8 @@ makeRule <- setRefClass("makeRule",
       # we create a specific rule for this file.
       if (!is.null(stem)) {
         deps <- sub("%", stem, depend)
-        rule <- makeRule(name=file, .target=file, .depend=deps,
-                         recipe=recipe, replace=TRUE, first.rule=TRUE)
+        rule <- makeRule(recipe=recipe, .target=file, .depend=deps,
+                         replace=TRUE, first.rule=TRUE)
         return(rule$make(file, force))
       }
       old = FALSE
