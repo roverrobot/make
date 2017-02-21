@@ -30,10 +30,15 @@ makeRule <- setRefClass("makeRule",
       if (length(.target) == 0)
         stop("a target must be specified.")
 
+
       callSuper(...)
-      target <<- .target
+      target <<- .target[[1]]
       depend <<- .depend
       .self$recipe <<- recipe
+
+      for (targ in .target[-1]) {
+        makeRule(recipe=recipe, .target=targ, .depend=.depend, ...)
+      }
     }
     ,
     make = function(file, force = FALSE) {
