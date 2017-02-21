@@ -53,3 +53,22 @@ clearRules <- function() {
 read <- function(file) {
   maker$make(file)
 }
+
+# The Rule class defines a single rule to make a file.
+Rule <- setRefClass(
+  "Rule",
+  methods = list(
+    initialize = function(replace=FALSE, first.rule = FALSE) {
+      maker$add.rule(.self, replace, first.rule)
+    }
+    ,
+    getTarget = function() {
+      NULL
+    }
+    ,
+    # make will fail for any file
+    make = function(file, force=FALSE) {
+      NULL
+    }
+  )
+)

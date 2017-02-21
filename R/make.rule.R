@@ -125,3 +125,13 @@ match.stem = function(pattern, file) {
   }
   list(match=match, stem=stem)
 }
+
+# Recipe represents the recipe for a rule
+Recipe <- setRefClass(
+  "Recipe",
+  methods = list(
+    run = function(target, depend) {
+      FALSE
+    }
+  )
+)
