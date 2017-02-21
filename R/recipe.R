@@ -1,39 +1,35 @@
 # Recipe represents the recipe for a rule
-Recipe <- setClass("Recipe",
-  slots  = c(
-    name = "character",
+Recipe <- setRefClass(
+  "Recipe",
+  fields  = c(
     script = "character",
     interpreter = "character"
   ),
-  prototype = list(
-    name = "",
-    script = "",
-    interpreter = "/bin/sh"
-  )
-)
-
-setGeneric(name="run",
-  def = function(.Object, ...) {
-   standardGeneric("run")
-  }
-)
-
-setMethod("run",
-  signature = c("Recipe"),
-  definition = function(.Object, ..., target, depends) {
-    exec <- function(interpreter) {
-      f = pipe(interpreter, open="w")
-      cat(.Object@script, sep = "\n", file=f)
-      result = close(f)
-      is.na(result) || result == 0
+  methods = list(
+    initialize = function(script, interpreter = NULL) {
+      .self$script <<- script
+      .self$interpreter <<- interpreter
+      match <- regexpr("^#!\\s*(?'handler'.*?)\\s*(\\n|$)", script[[1]], perl=TRUE)
+      if (match == 1) {
+        start <- attr(match, "capture.start")["handler"]
+        length <- attr(match, "capture.length")["handler"]
+        if (is.null(interpreter))
+          .self$interpreter <<- substr(script[[1]], start, start + length - 1)
+      }
+      if (is.null(.self$interpreter))
+        .self$interpreter <<- "/bin/sh"
     }
-    match <- regexpr("^#!\\s*(?'handler'.*?)\\s*(\\n|$)", .Object@script[[1]], perl=TRUE)
-    if (match == 1) {
-      start <- attr(match, "capture.start")["handler"]
-      length <- attr(match, "capture.length")["handler"]
-      interpreter <- substr(.Object@script[[1]], start, start + length - 1)
-    } else interpreter <- .Object@interpreter
-    result <- tryCatch(exec(interpreter))
-    result
-  }
+    ,
+    run = function(target, depend) {
+      exec = function() {
+        f <- pipe(interpreter, open="w")
+        cat(script, sep = "\n", file=f)
+        result <- close(f)
+        is.na(result) || result == 0
+      }
+      # check if a handler is specified in the first line of the script
+      result <- try(exec())
+      result
+    }
+  )
 )
