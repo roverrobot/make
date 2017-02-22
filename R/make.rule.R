@@ -83,8 +83,10 @@ makeRule <- setRefClass("makeRule",
         if (target.exists)
           old = old || (depend.info$mtime > target.info$mtime)
       }
-      if (is.null(recipe) || !old) {
+      if (!old) {
         TRUE
+      } else if (is.null(recipe)) {
+        FALSE
       } else {
         recipe$run(file, depend)
       }
