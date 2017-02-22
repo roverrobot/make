@@ -55,9 +55,11 @@ getRules <- function () {
   maker$rules
 }
 
-#' clear the list of rules
-clearRules <- function() {
+#' clear the list of rules and load from Makefile.R
+resetRules <- function() {
   maker$rules = list()
+  if (file.exists("Makefile.R"))
+    try(source("Makefile.R"))
 }
 
 #' make a file

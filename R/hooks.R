@@ -169,11 +169,9 @@ connection.base <- BaseConnection()
 
 #' the detach hook
 .onDetach <- function(libpath) {
-  clearRules()
 }
 
 #' the attach hook
 .onAttach <- function(libpath, pkgname) {
-  if (file.exists("Makefile.R"))
-    tryCatch(source("Makefile.R"))
+  resetRules()
 }
