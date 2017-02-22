@@ -10,10 +10,14 @@ containsFile <- function (files, file) {
 scriptRule <- setRefClass("scriptRule",
   contains = c("makeRule"),
   methods = list(
-    initialize = function(..., script, interpreter="") {
-      callSuper(..., recipe = scriptRecipe(script=script, interpreter=interpreter))
-      if (!containsFile(depend, script))
-        depend <<- c(depend, script)
+    initialize = function(..., .script = NULL, interpreter="") {
+      callSuper(..., recipe = NULL)
+      if (!is.null(.script)) {
+        if (!containsFile(depend, .script))
+          depend <<- c(depend, script)
+      } else if (length(depend) > 0)
+        .script = depend[[1]]
+      recipe <<- scriptRecipe(script=.script, interpreter=interpreter)
     }
   )
 )
