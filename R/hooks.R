@@ -3,7 +3,8 @@
 # Hook class intercept one call in base
 # base classes must implement a hook method
 setClassUnion("functionOrNULL",members=c("function", "NULL"))
-Hook <- setRefClass("Hook",
+Hook <- setRefClass(
+  "Hook",
   fields = c(
     package = "character",
     fun = "character",
@@ -38,10 +39,17 @@ Hook <- setRefClass("Hook",
       lockBinding(fun, pkg)
       saved <<- NULL
     }
+    ,
+    initialize = function(fun, package="base") {
+      package <<- package
+      fun <<- fun
+      saved <<- NULL
+    }
   )
 )
 
-fileHook <- setRefClass("fileHook",
+fileHook <- setRefClass(
+  "fileHook",
   contains = c("Hook"),
   methods = c(
     hook=function(description="", open="", ...) {
@@ -51,14 +59,11 @@ fileHook <- setRefClass("fileHook",
       if (open != "") open(con, open)
       con
     }
-    ,
-    initialize = function(fun) {
-      initFields(package="base", fun=fun, saved=NULL)
-    }
   )
 )
 
-openHook <- setRefClass("FileHook",
+openHook <- setRefClass(
+  "FileHook",
   contains = c("Hook"),
   methods = c(
     hook=function(con, open = "", ...) {
@@ -69,8 +74,26 @@ openHook <- setRefClass("FileHook",
     }
     ,
     initialize= function() {
-      package <<- "base"
-      fun <<- "open"
+      callSuper("open")
+    }
+  )
+)
+
+readCharHook <- setRefClass(
+  "readCharHook",
+  contains = c("Hook"),
+  methods = list(
+    hook = function(con, ...) {
+      if (!is.character(con)) {
+        info = summary.connection(con)
+        file = info$description
+      } else file = con
+      read(file)
+      saved(con, ...)
+    }
+    ,
+    initialize = function() {
+      callSuper("readChar")
     }
   )
 )
@@ -126,6 +149,7 @@ BaseConnection <- setRefClass("BaseConnection",
       add(fileHook(fun="bzfile"))
       add(fileHook(fun="xzfile"))
       add(fileHook(fun="unz"))
+      add(readCharHook())
     }
   )
 )
