@@ -27,6 +27,7 @@ Maker <- setRefClass(
                             stop(geterrmessage(), call.=FALSE)})
         if (!is.null(result)) break
       }
+      making <<- making[-length(making)]
       if (is.null(result)) {
         if (file.exists(file) || silent) return(NULL)
         making <<- list()
@@ -36,7 +37,6 @@ Maker <- setRefClass(
         making <<- list()
         stop("failed to make file: ", file, call. = FALSE)
       }
-      making <<- making[-length(making)]
       TRUE
     }
     ,
