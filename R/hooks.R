@@ -159,6 +159,7 @@ connection.base <- BaseConnection()
 #' the load hook
 .onLoad <- function(libname, pkgname) {
   connection.base$set()
+  options(`make:interpreter` = "/bin/sh --")
 }
 
 #' the unload hook
