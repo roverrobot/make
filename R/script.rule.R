@@ -1,27 +1,3 @@
-#' checks if file is contained in files
-#' @param files a character vector specifying file names
-#' @param file a character specifying the file to be searched
-containsFile <- function (files, file) {
-  file = normalizePath(file, mustWork = FALSE)
-  files = normalizePath(files, mustWork = FALSE)
-  file %in% files
-}
-
-scriptRule <- setRefClass("scriptRule",
-  contains = c("makeRule"),
-  methods = list(
-    initialize = function(..., .script = NULL, interpreter="") {
-      callSuper(..., recipe = NULL)
-      if (!is.null(.script)) {
-        if (!containsFile(depend, .script))
-          depend <<- c(depend, script)
-      } else if (length(depend) > 0)
-        .script = depend[[1]]
-      recipe <<- scriptRecipe(script=.script, interpreter=interpreter)
-    }
-  )
-)
-
 scriptRecipe <- setRefClass(
   "scriptRecipe",
   contains = c("Recipe"),

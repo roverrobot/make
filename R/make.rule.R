@@ -19,7 +19,9 @@ makeRule <- setRefClass("makeRule",
     recipe = "RecipeField"
   ),
   methods = list(
-    initialize = function(relation=NULL, recipe=NULL, .target=NULL, .depend=c(), ...) {
+    initialize = function(relation=NULL, recipe=NULL,
+                          .target=NULL, .depend=c(),
+                          interpreter = "", ...) {
       if (is.null(relation) && is.null(target)) {
         stop("Either relation or target must be specified")
       }
@@ -41,12 +43,14 @@ makeRule <- setRefClass("makeRule",
 
       target <<- .target[[1]]
       depend <<- .depend
-      recipe <<- recipe
+      recipe <<- if (is.null(recipe) && length(depend) > 0) {
+        scriptRecipe(script = depend[[1]], interpreter = interpreter)
+      } else recipe
       callSuper(...)
 
       # set up a rule for each target specified
       for (targ in .target[-1]) {
-        makeRule(recipe=recipe, .target=targ, .depend=.depend, ...)
+        makeRule(recipe=recipe, .target=targ, .depend=.depend, interpreter = interpreter, ...)
       }
     }
     ,
