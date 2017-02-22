@@ -8,7 +8,7 @@ Recipe <- setRefClass(
   )
 )
 
-setClassUnion("RecipeOrNULL", members=c("Recipe", "NULL"))
+setClassUnion("RecipeField", members=c("Recipe", "function", "NULL"))
 
 # makeRule implements a rule that is similar to a Makefile rule
 makeRule <- setRefClass("makeRule",
@@ -16,7 +16,7 @@ makeRule <- setRefClass("makeRule",
   fields = c(
     target = "character",
     depend = "character",
-    recipe = "RecipeOrNULL"
+    recipe = "RecipeField"
   ),
   methods = list(
     initialize = function(relation=NULL, recipe=NULL, .target=NULL, .depend=c(), ...) {
@@ -41,7 +41,7 @@ makeRule <- setRefClass("makeRule",
 
       target <<- .target[[1]]
       depend <<- .depend
-      .self$recipe <<- recipe
+      recipe <<- recipe
       callSuper(...)
 
       # set up a rule for each target specified
@@ -87,6 +87,8 @@ makeRule <- setRefClass("makeRule",
         TRUE
       } else if (is.null(recipe)) {
         FALSE
+      } else if (is.function(recipe)) {
+        recipe(file, depend)
       } else {
         recipe$run(file, depend)
       }
