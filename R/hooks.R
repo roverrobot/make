@@ -55,7 +55,7 @@ fileHook <- setRefClass(
     hook=function(description="", open="", ...) {
       con = saved(description, "", ...)
       info = summary.connection(con)
-      if (is.read(info)) read(info$description)
+      if (is.read(info)) make(info$description)
       if (open != "") open(con, open)
       con
     }
@@ -69,7 +69,7 @@ openHook <- setRefClass(
     hook=function(con, open = "", ...) {
       info = summary.connection(con)
       if (info$class == "file" && grepl("r", open))
-        read(info$description)
+        make(info$description)
       saved(con, open, ...)
     }
     ,
@@ -88,7 +88,7 @@ readCharHook <- setRefClass(
         info = summary.connection(con)
         file = info$description
       } else file = con
-      read(file)
+      make(file)
       saved(con, ...)
     }
     ,

@@ -59,9 +59,11 @@ clearRules <- function() {
   maker$rules = list()
 }
 
-#' a load file is to be read
-#' @param file the path of the local file to be read
-read <- function(file) {
+#' make a file
+#' @param file the file to make
+#' @param force force to build the file regardless if it is stale or not.
+#' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
+make <- function(file, force=FALSE) {
   maker$make(file)
 }
 
