@@ -14,25 +14,29 @@ Maker <- setRefClass(
     #' @param silent In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE. Still complains and stop if a rule matches but failed to make the file.
     #' @return TRUE if successful, and NULL if do not know how to make it.
     make = function(file, force=FALSE, silent = FALSE) {
-      if (file %in% making)
+      if (file %in% making) {
+        making <<- list()
         stop("circular dependences: ", making, " ", file)
+      }
       making <<- c(making, file)
       result = NULL
       for (rule in rules) {
         result = tryCatch(rule$make(file, force),
                           error = function(e) {
-                            making <<- making[1:(length(making)-1)]
+                            making <<- list()
                             stop(geterrmessage(), call.=FALSE)})
         if (!is.null(result)) break
       }
-      making <<- making[-length(making)]
       if (is.null(result)) {
         if (file.exists(file) || silent) return(NULL)
+        making <<- list()
         stop("do not know how to make file: ", file, call. = FALSE)
       } else if (!result) {
         if (file.exists(file)) file.remove(file)
+        making <<- list()
         stop("failed to make file: ", file, call. = FALSE)
       }
+      making <<- making[-length(making)]
       TRUE
     }
     ,
