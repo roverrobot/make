@@ -86,17 +86,13 @@ makeRule <- setRefClass("makeRule",
       if (!matched) return(NULL)
       # if stem is not NULL, then this pattern is an implict rule
       # we create a specific rule for this file.
-      if (!is.null(stem)) {
-        deps <- sub("%", stem, depend)
-        rule <- makeRule(recipe=recipe, .target=file, .depend=deps,
-                         replace=TRUE, first.rule=TRUE)
-        return(rule$make(file, force))
-      }
+      deps <- if (is.null(stem)) depend else sub("%", stem, depend)
+
       target.info = file.info(file)
       target.exists = length(which(!is.na(target.info))) > 0
       # if force or file does not exist, always build.
       old = !target.exists || force
-      for (dep in depend) {
+      for (dep in deps) {
         result = maker$make(dep, silent = TRUE)
         # if dep does not exist and no rule matches to make it, then it is the wrong rule.
         if (is.null(result) && !file.exists(dep)) {
@@ -111,9 +107,9 @@ makeRule <- setRefClass("makeRule",
       } else if (is.null(recipe)) {
         FALSE
       } else if (is.function(recipe)) {
-        recipe(file, depend)
+        recipe(file, deps)
       } else {
-        recipe$run(file, depend)
+        recipe$run(file, deps)
       }
     }
     ,
