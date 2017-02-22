@@ -95,7 +95,11 @@ makeRule <- setRefClass("makeRule",
       # if force or file does not exist, always build.
       old = !target.exists || force
       for (dep in depend) {
-        maker$make(dep)
+        result = maker$make(dep, silent = TRUE)
+        # if dep does not exist and no rule matches to make it, then it is the wrong rule.
+        if (is.null(result) && !file.exists(dep)) {
+          return(NULL)
+        }
         depend.info = file.info(dep)
         if (target.exists)
           old = old || (depend.info$mtime > target.info$mtime)
