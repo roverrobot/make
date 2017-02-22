@@ -14,11 +14,19 @@ setClassUnion("RecipeField", members=c("Recipe", "function", "NULL"))
 makeRule <- setRefClass("makeRule",
   contains = c("Rule"),
   fields = c(
+    #' the target to make
     target = "character",
+    #' a vector of dependent files
     depend = "character",
+    #' the recipe to make the target
     recipe = "RecipeField"
   ),
   methods = list(
+    #' initializer,
+    #' @param relation a formula specifying target ~ dependences, the dependences are separated by +
+    #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (use the first dependent file as a script to make the target)
+    #' @param interpreter f using the first dependent file as a script, this is the interpreter to run the script.
+    #' @param ... parameters to pass to Rule, like first.rule or replace.
     initialize = function(relation=NULL, recipe=NULL,
                           .target=NULL, .depend=c(),
                           interpreter = "", ...) {
@@ -54,10 +62,15 @@ makeRule <- setRefClass("makeRule",
       }
     }
     ,
+    #' returns the target, overrides the method in the parent (Rule) class.
     getTarget = function() {
       target
     }
     ,
+    #' make a file
+    #' @param file the file to make
+    #' @param force force to build the file regardless if it is stale or not.
+    #' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
     make = function(file, force = FALSE) {
       # match file to targets, which can contain a stem, e.g., dir/%.c
       stem <- NULL
@@ -98,6 +111,7 @@ makeRule <- setRefClass("makeRule",
       }
     }
     ,
+    #' pretty print a makeRule object
     show = function() {
       cat("~", depend, "\n")
       cat("recipe = ")

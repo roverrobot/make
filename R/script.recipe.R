@@ -1,11 +1,18 @@
+#' this is a Recipe that makes a target file by running a script,
+#' interpreted by an interpreter.
 scriptRecipe <- setRefClass(
   "scriptRecipe",
   contains = c("Recipe"),
   fields = c(
+    #' the script file name
     script = "character",
+    #' the interpreter used to run the script.
     interpreter = "character"
   ),
   methods = list(
+    #' the method for making the target from a vector of dependences
+    #' @param target the target file
+    #' @param depend the vector of dependences
     run = function(target, depend) {
       if (!file.exists(script))
         stop("The recipe script ", script, " does not exist.")
@@ -23,6 +30,7 @@ scriptRecipe <- setRefClass(
       system(paste(c(getInterpreter(), script, target, depend), collapse = " ")) == 0
     }
     ,
+    #' find the proper interpreter to run the script
     getInterpreter = function() {
       run <- interpreter
       if (nchar(run) == 0) {
@@ -35,6 +43,7 @@ scriptRecipe <- setRefClass(
       } else run
     }
     ,
+    #' pretty print a scriptRecipe object
     show = function() {
       cat(getInterpreter(), script, "\n")
     }
