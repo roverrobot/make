@@ -10,8 +10,8 @@ Maker <- setRefClass(
     #' @param file the file to make
     #' @param force force to build the file regardless if it is stale or not.
     #' @param silent In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE. Still complains and stop if a rule matches but failed to make the file.
-    #' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
-    make = function(file, force, silent = FALSE) {
+    #' @return TRUE if successful, and NULL if do not know how to make it.
+    make = function(file, force=FALSE, silent = FALSE) {
       result = NULL
       for (rule in rules) {
         result = rule$make(file, force)

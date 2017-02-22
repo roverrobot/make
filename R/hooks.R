@@ -54,8 +54,6 @@ fileHook <- setRefClass(
   methods = c(
     hook=function(description="", open="", ...) {
       con = saved(description, "", ...)
-      info = summary.connection(con)
-      if (is.read(info)) make(info$description)
       if (open != "") open(con, open)
       con
     }
@@ -68,7 +66,7 @@ openHook <- setRefClass(
   methods = c(
     hook=function(con, open = "", ...) {
       info = summary.connection(con)
-      if (info$class == "file" && grepl("r", open))
+      if (is.file(info) && grepl("r", open))
         make(info$description)
       saved(con, open, ...)
     }
@@ -98,12 +96,11 @@ readCharHook <- setRefClass(
   )
 )
 
-#' if the connection is being opened for read
+#' if the connection is a local file
 #' @param con summary of a connection, as returned by summary.connection
 #' @return logical
-is.read = function(con) {
-  con$class %in% c("file", "gzfile", "bzfile", "xzfile", "unz") &&
-    con$opened == "opened" && grepl("r", con$mode)
+is.file = function(con) {
+  con$class %in% c("file", "gzfile", "bzfile", "xzfile", "unz")
 }
 
 BaseConnection <- setRefClass("BaseConnection",
