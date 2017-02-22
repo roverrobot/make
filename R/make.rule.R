@@ -12,7 +12,6 @@ setClassUnion("RecipeField", members=c("Recipe", "function", "NULL"))
 
 # makeRule implements a rule that is similar to a Makefile rule
 makeRule <- setRefClass("makeRule",
-  contains = c("Rule"),
   fields = c(
     #' the target to make
     target = "character",
@@ -26,10 +25,12 @@ makeRule <- setRefClass("makeRule",
     #' @param relation a formula specifying target ~ dependences, the dependences are separated by +
     #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (use the first dependent file as a script to make the target)
     #' @param interpreter f using the first dependent file as a script, this is the interpreter to run the script.
-    #' @param ... parameters to pass to Rule, like first.rule or replace.
+    #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
+    #' @param first.rule If TRUE, add to the top of the list. If FALSE, add to the bottom of the list. Note that the rules are searched from top to bottom until the first one which target matches the file to be made if found.
     initialize = function(relation=NULL, recipe=NULL,
                           .target=NULL, .depend=c(),
-                          interpreter = "", ...) {
+                          interpreter = "",
+                          replace=FALSE, first.rule = FALSE) {
       if (is.null(relation) && is.null(target)) {
         stop("Either relation or target must be specified")
       }
@@ -54,11 +55,12 @@ makeRule <- setRefClass("makeRule",
       recipe <<- if (is.null(recipe) && length(depend) > 0) {
         scriptRecipe(script = depend[[1]], interpreter = interpreter)
       } else recipe
-      callSuper(...)
+      maker$add.rule(.self, replace, first.rule)
 
       # set up a rule for each target specified
       for (targ in .target[-1]) {
-        makeRule(recipe=recipe, .target=targ, .depend=.depend, interpreter = interpreter, ...)
+        makeRule(recipe=recipe, .target=targ, .depend=.depend, interpreter = interpreter,
+                 replace, first.rule)
       }
     }
     ,

@@ -32,7 +32,7 @@ Maker <- setRefClass(
     #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
     #' @param first.rule If TRUE, add to the top of the list. If FALSE, add to the bottom of the list. Note that the rules are searched from top to bottom until the first one which target matches the file to be made if found.
     add.rule = function(rule, replace=FALSE, first.rule=FALSE) {
-      if (!is(rule, "Rule"))
+      if (!is(rule, "makeRule"))
         stop("A rule must be an object of the class Rule.")
       name <- rule$getTarget()
       if (is.null(name) || length(name) == 0)
@@ -69,29 +69,3 @@ resetRules <- function() {
 make <- function(file, force=FALSE) {
   maker$make(file)
 }
-
-#' The Rule class defines a single rule to make a file.
-Rule <- setRefClass(
-  "Rule",
-  methods = list(
-    #' initializer
-    #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
-    #' @param first.rule If TRUE, add to the top of the list. If FALSE, add to the bottom of the list. Note that the rules are searched from top to bottom until the first one which target matches the file to be made if found.
-    initialize = function(replace=FALSE, first.rule = FALSE) {
-      maker$add.rule(.self, replace, first.rule)
-    }
-    ,
-    #' returns the target of the rule.
-    getTarget = function() {
-      NULL
-    }
-    ,
-    #' make a file
-    #' @param file the file to make
-    #' @param force force to build the file regardless if it is stale or not.
-    #' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
-    make = function(file, force=FALSE) {
-      NULL
-    }
-  )
-)
