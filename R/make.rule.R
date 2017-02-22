@@ -8,7 +8,7 @@ Recipe <- setRefClass(
   )
 )
 
-setClassUnion("RecipeField", members=c("Recipe", "function", "NULL"))
+setClassUnion("RecipeField", members=c("Recipe", "function", "logical", "NULL"))
 
 # makeRule implements a rule that is similar to a Makefile rule
 makeRule <- setRefClass("makeRule",
@@ -23,11 +23,11 @@ makeRule <- setRefClass("makeRule",
   methods = list(
     #' initializer,
     #' @param relation a formula specifying target ~ dependences, the dependences are separated by +
-    #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (use the first dependent file as a script to make the target)
+    #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (the match to target will fail), or TRUE (the rule always success), or FALSE (the rule always fail). Note that NULL/TRUE/FALSE are returned after successfully checked dependences.
     #' @param interpreter f using the first dependent file as a script, this is the interpreter to run the script.
     #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
     #' @param first.rule If TRUE, add to the top of the list. If FALSE, add to the bottom of the list. Note that the rules are searched from top to bottom until the first one which target matches the file to be made if found.
-    initialize = function(relation=NULL, recipe=NULL,
+    initialize = function(relation=NULL, recipe=scriptRecipe(interpreter=interpreter),
                           .target=NULL, .depend=c(),
                           interpreter = "",
                           replace=FALSE, first.rule = FALSE) {
@@ -52,9 +52,7 @@ makeRule <- setRefClass("makeRule",
 
       target <<- .target[[1]]
       depend <<- .depend
-      recipe <<- if (is.null(recipe) && length(depend) > 0) {
-        scriptRecipe(script = depend[[1]], interpreter = interpreter)
-      } else recipe
+      recipe <<- recipe
       maker$add.rule(.self, replace, first.rule)
 
       # set up a rule for each target specified
@@ -105,7 +103,9 @@ makeRule <- setRefClass("makeRule",
       if (!old) {
         TRUE
       } else if (is.null(recipe)) {
-        FALSE
+        NULL
+      } else if (is.logical(recipe)) {
+        recipe
       } else if (is.function(recipe)) {
         recipe(file, deps)
       } else {

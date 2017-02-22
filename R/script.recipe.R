@@ -4,42 +4,36 @@ scriptRecipe <- setRefClass(
   "scriptRecipe",
   contains = c("Recipe"),
   fields = c(
-    #' the script file name
-    script = "character",
     #' the interpreter used to run the script.
     interpreter = "character"
   ),
   methods = list(
-    #' initializer
-    #' @param script the script name
-    #' @param interpreter the interpreter to run the script
-    initialize = function(script, interpreter = "") {
-      script <<- script
-      if (nchar(interpreter) == 0) {
+    #' the method for making the target from a vector of dependences
+    #' @param target the target file
+    #' @param depend the vector of dependences, the first file in depend is the script name
+    run = function(target, depend) {
+      # the script is the first dependent file
+      if (length(depend) == 0)
+        stop("A script must be specified as the first dependent file.")
+      script <- depend[[1]]
+      if (!file.exists(script))
+        stop("The recipe script ", script, " does not exist.")
+      # check for interpreter
+      run <- interpreter
+      # if the interpreter is not specified, check if it is specified in the script first
+      if (nchar(run) == 0) {
         first.line = readLines(script, n=1)
         match <- regexpr("^#!\\s*(?'handler'.*?)\\s*(\\n|$)", first.line[[1]], perl=TRUE)
         if (match > 0) {
           start <- attr(match, "capture.start")["handler"]
           length <- attr(match, "capture.length")["handler"]
-          interpreter <<- substr(script[[1]], start, start + length - 1)
-        } else {
-          interpreter <<- getInterpreter(script)
+          run <- substr(script[[1]], start, start + length - 1)
         }
       }
-    }
-    ,
-    #' the method for making the target from a vector of dependences
-    #' @param target the target file
-    #' @param depend the vector of dependences
-    run = function(target, depend) {
-      if (!file.exists(script))
-        stop("The recipe script ", script, " does not exist.")
-      system(paste(c(get.interpreter(), script, target, depend), collapse = " ")) == 0
-    }
-    ,
-    #' find the proper interpreter to run the script
-    get.interpreter = function() {
-      run <- interpreter
+      # if still not specified, check for thelist of known interpreters
+      if (nchar(run) == 0)
+        run <- interpreters$get(script)
+      # if still not specified, check for a global option
       if (nchar(run) == 0) {
         opt = getOption("make:interpreter")
         if (is.character(opt)) run <- opt
@@ -47,12 +41,15 @@ scriptRecipe <- setRefClass(
       # the default interpreter is /bin/sh
       if (nchar(run) == 0) {
         "/bin/sh --"
-      } else run
+      }
+      system(paste(c(run, script, target, depend), collapse = " ")) == 0
     }
     ,
     #' pretty print a scriptRecipe object
     show = function() {
-      cat(get.interpreter(), script, "\n")
+      cat("scriptRecipe")
+      if (nchar(interpreter) > 0) cat(" interpretered by:", interpreter, "\n")
+      cat("\n")
     }
   )
 )
