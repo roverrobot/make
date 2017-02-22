@@ -20,15 +20,23 @@ scriptRecipe <- setRefClass(
         }
       }
       # if still no interpreter, see if an option make:interpreter is set
-      if (nchar(interpreter) == 0) {
+      system(paste(c(getInterpreter(), script, target, depend), collapse = " ")) == 0
+    }
+    ,
+    getInterpreter = function() {
+      run <- interpreter
+      if (nchar(run) == 0) {
         opt = getOption("make:interpreter")
-        if (is.character(opt)) interpreter <<- opt
+        if (is.character(opt)) run <- opt
       }
       # the default interpreter is /bin/sh
-      if (nchar(interpreter) == 0) {
-        interpreter <<- "/bin/sh --"
-      }
-      system(paste(c(interpreter, script, target, depend), collapse = " ")) == 0
+      if (nchar(run) == 0) {
+        "/bin/sh --"
+      } else run
+    }
+    ,
+    show = function() {
+      cat(getInterpreter(), script, "\n")
     }
   )
 )
