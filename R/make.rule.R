@@ -11,8 +11,6 @@ makeRule <- setRefClass("makeRule",
   ),
   methods = list(
     initialize = function(relation=NULL, recipe=NULL, .target=NULL, .depend=c(), ...) {
-      if (is.null(recipe))
-        stop("The recipe is missing.")
       if (is.null(relation) && is.null(target)) {
         stop("Either relation or target must be specified")
       }
@@ -76,8 +74,11 @@ makeRule <- setRefClass("makeRule",
         if (target.exists)
           old = old || (depend.info$mtime > target.info$mtime)
       }
-      if (!old) return(TRUE)
-      recipe$run(file, depend)
+      if (is.null(recipe) || !old) {
+        TRUE
+      } else {
+        recipe$run(file, depend)
+      }
     }
   )
 )
