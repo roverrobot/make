@@ -3,7 +3,9 @@ Maker <- setRefClass(
   "Maker",
   fields = c(
     #' the list of make rules
-    rules = "list"
+    rules = "list",
+    #' the list of files currently being made
+    making = "list"
   ),
   methods = list(
     #' make a file
@@ -12,11 +14,18 @@ Maker <- setRefClass(
     #' @param silent In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE. Still complains and stop if a rule matches but failed to make the file.
     #' @return TRUE if successful, and NULL if do not know how to make it.
     make = function(file, force=FALSE, silent = FALSE) {
+      if (file %in% making)
+        stop("circular dependences: ", making, " ", file)
+      making <<- c(making, file)
       result = NULL
       for (rule in rules) {
-        result = rule$make(file, force)
+        result = tryCatch(rule$make(file, force),
+                          error = function(e) {
+                            making <<- making[1:(length(making)-1)]
+                            stop(geterrmessage(), call.=FALSE)})
         if (!is.null(result)) break
       }
+      making <<- making[-length(making)]
       if (is.null(result)) {
         if (file.exists(file) || silent) return(NULL)
         stop("do not know how to make file: ", file, call. = FALSE)
@@ -57,7 +66,8 @@ getRules <- function () {
 
 #' clear the list of rules and load from Makefile.R
 resetRules <- function() {
-  maker$rules = list()
+  maker$rules <- list()
+  maker$making <- list()
   if (file.exists("Makefile.R"))
     try(source("Makefile.R"))
 }
