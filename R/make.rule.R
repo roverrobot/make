@@ -97,6 +97,14 @@ makeRule <- setRefClass("makeRule",
         recipe$run(file, depend)
       }
     }
+    ,
+    show = function() {
+      cat("~", depend, "\n")
+      cat("recipe = ")
+      if (is.null(recipe)) {
+        cat("NULL\n")
+      } else methods::show(recipe)
+    }
   )
 )
 
