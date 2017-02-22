@@ -1,7 +1,16 @@
-# makeRule implements a rule that is similar to a Makefile rule
+# Recipe represents the recipe for a rule
+Recipe <- setRefClass(
+  "Recipe",
+  methods = list(
+    run = function(target, depend) {
+      FALSE
+    }
+  )
+)
 
 setClassUnion("RecipeOrNULL", members=c("Recipe", "NULL"))
 
+# makeRule implements a rule that is similar to a Makefile rule
 makeRule <- setRefClass("makeRule",
   contains = c("Rule"),
   fields = c(
@@ -126,13 +135,3 @@ match.stem = function(pattern, file) {
   }
   list(match=match, stem=stem)
 }
-
-# Recipe represents the recipe for a rule
-Recipe <- setRefClass(
-  "Recipe",
-  methods = list(
-    run = function(target, depend) {
-      FALSE
-    }
-  )
-)
