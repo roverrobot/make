@@ -1,3 +1,10 @@
+#' check if a file name has an extension
+#' @param file the filename to check
+#' @param ext the extension to check
+has.ext <- function(file, ext) {
+  substring(tolower(file), nchar(file)-nchar(ext)) == paste(".", tolower(ext), sep="")
+}
+
 #' this class defines a general interface for handling a file
 FileHandler <- setRefClass(
   "FileHandler",
@@ -11,9 +18,6 @@ FileHandler <- setRefClass(
     canRun = function(script) {
       # can run all scripts (i.e., the default) if no ext is specified
       if (length(ext) == 0) return(TRUE)
-      has.ext <- function(file, ext) {
-        substring(file, length(file)-length(ext)) == ext
-      }
       file <- tolower(script)
       for (e in ext)
         if (has.ext(file, e)) return(TRUE)
