@@ -15,7 +15,7 @@ FileHandler <- setRefClass(
     #' check if this interpreter can run a script
     #' @param script the script to run
     #' @return logical, TRUE if it can run, FALSE if it cannot.
-    canRun = function(script) {
+    canHandle = function(script) {
       # can run all scripts (i.e., the default) if no ext is specified
       if (length(ext) == 0) return(TRUE)
       file <- tolower(script)

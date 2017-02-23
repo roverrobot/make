@@ -45,7 +45,7 @@ Interpreters <- setRefClass(
     #' @return an interpreter
     get = function(script) {
       for (i in interpreters)
-        if (i$canRun(script)) return(i)
+        if (i$canHandle(script)) return(i)
       return (NULL)
     }
     ,
