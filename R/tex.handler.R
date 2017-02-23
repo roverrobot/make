@@ -48,6 +48,8 @@ texHandler <- setRefClass(
   )
 )
 
+tex.ext = list("tex", "ltx")
+
 #' this Interpreter subclass compiles a tex file
 texInterpreter <- setRefClass(
   "texInterpreter",
@@ -67,7 +69,7 @@ texInterpreter <- setRefClass(
     #' @param latex the latex compiler command
     #' @param tex the plain tex compiler command
     #' @param bibtex the bibtex processor command
-    initialize = function(ext = list("tex", "ltx"), register=TRUE,
+    initialize = function(ext = tex.ext, register=TRUE,
                           latex = "pdflatex -interaction=nonstopmode",
                           tex="pdftex -interaction=nonstopmode",
                           bibtex="bibtex") {
@@ -113,3 +115,36 @@ texInterpreter <- setRefClass(
 )
 
 texInterpreter()
+
+texScanner <- setRefClass(
+  "texScanner",
+  contains = c("Scanner"),
+  methods = list(
+    #' scan a file for dependences
+    #' @param file the file to scan
+    #' @return a list of dependences, or NULL if none
+    scan = function(file) {
+      add.suffix <- function(strs, suffix) {
+        sapply(strs, function(str) {
+          parts <- strsplit(basename(str),"\\.")[[1]]
+          if (length(parts) > 1) str else paste(str, suffix, sep=".")
+        })
+      }
+
+      tex <- texHandler(file)
+      figures <- tex$matchCommand("includegraphics")
+      figures <- add.suffix(figures, "pdf")
+      bibs <- tex$matchCommand("bibliography")
+      bibs <- strsplit(bibs, "\\s*,\\s*")[[1]]
+      bibs <- add.suffix(bibs, "bib")
+      inputs <- tex$matchCommand("input", to.space = TRUE)
+      inputs <- add.suffix(inputs, "tex")
+      c(figures, bibs, inputs)
+    },
+    #' initializer
+    initialize = function() {
+      callSuper(ext=tex.ext)
+      scanners$add(.self)
+    }
+  )
+)

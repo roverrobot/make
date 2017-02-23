@@ -35,31 +35,7 @@ Interpreter <- setRefClass(
   )
 )
 
-#' defines an Interpreter manager
-Interpreters <- setRefClass(
-  "Interpreters",
-  fields = c(interpreters = "list"),
-  methods = list(
-    #' get an interpreter that can handle a script
-    #' @param script, the name of a script to search for interpreters
-    #' @return an interpreter
-    get = function(script) {
-      for (i in interpreters)
-        if (i$canHandle(script)) return(i)
-      return (NULL)
-    }
-    ,
-    #' add an interpreter to the first of the list of interpreters
-    #' @param interpreter an interpreter
-    add = function(interpreter) {
-      if (!is(interpreter, "Interpreter"))
-        stop("The interpreter must be an object of Interpreter.")
-      interpreters <<- c(list(interpreter), interpreters)
-    }
-  )
-)
-
-interpreters = Interpreters()
+interpreters = Manager(class="Interpreter")
 Interpreter("", "") # the default one
 Interpreter("py", "python")
 Interpreter("pl", "perl")
