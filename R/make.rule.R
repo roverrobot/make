@@ -29,7 +29,7 @@ makeRule <- setRefClass("makeRule",
     #' @param first.rule If TRUE, add to the top of the list. If FALSE, add to the bottom of the list. Note that the rules are searched from top to bottom until the first one which target matches the file to be made if found.
     initialize = function(relation=NULL, recipe=scriptRecipe(interpreter=interpreter),
                           .target=NULL, .depend=c(),
-                          interpreter = "",
+                          interpreter = NULL,
                           replace=FALSE, first.rule = FALSE) {
       if (is.null(relation) && is.null(target)) {
         stop("Either relation or target must be specified")

@@ -1,3 +1,94 @@
+#' this class defines an interpreter to run a type of script (distinguished by extensions)
+Interpreter <- setRefClass(
+  "Interpreter",
+  fields = c(
+    ext = "list",
+    command = "character"),
+  methods = list(
+    #' the method for making the target from a vector of dependences
+    #' @param script the script to run
+    #' @param target the target file
+    #' @param depend the vector of dependences, the first file in depend is the script name
+    run = function(script, target, depend) {
+      # if the interpreter is not specified, check if it is specified in the script first
+      com <- command
+      if (nchar(com) == 0) {
+        opt <- getOption("make:interpreter")
+        if (is.character(opt)) com <- opt
+      }
+      # the default interpreter is /bin/sh
+      if (nchar(com) == 0) {
+        com <- "/bin/sh --"
+      }
+      system(paste(c(com, script, target, depend), collapse = " ")) == 0
+    },
+    #' check if this interpreter can run a script
+    #' @param script the script to run
+    #' @return logical, TRUE if it can run, FALSE if it cannot.
+    canRun = function(script) {
+      # can run all scripts (i.e., the default) if no ext is specified
+      if (length(ext) == 0) return(TRUE)
+      has.ext <- function(file, ext) {
+        substring(file, length(file)-length(ext)) == ext
+      }
+      file <- tolower(script)
+      for (e in ext)
+        if (has.ext(file, e)) return(TRUE)
+      FALSE
+    }
+    ,
+    #' initializer
+    #' @param ext a list or a vector of extensions that this interpreter can run
+    #' @param command the command to run a given script
+    #' @param register whether toautomatically add to the interpreter manager
+    initialize = function(ext = list(), command = "", register=TRUE) {
+      if (is.character(ext)) {
+        e <- as.list(ext[which(ext != "")])
+      } else if (is.list(ext)) {
+        e <- ext
+      } else stop("ext must be a list or a vector of extensions")
+      ext <<- e
+      command <<-command
+      if (register) interpreters$add(.self)
+    }
+  )
+)
+
+#' defines an Interpreter manager
+Interpreters <- setRefClass(
+  "Interpreters",
+  fields = c(interpreters = "list"),
+  methods = list(
+    #' get an interpreter that can handle a script
+    #' @param script, the name of a script to search for interpreters
+    #' @return an interpreter
+    get = function(script) {
+      for (i in interpreters)
+        if (i$canRun(script)) return(i)
+      return (NULL)
+    }
+    ,
+    #' add an interpreter to the first of the list of interpreters
+    #' @param interpreter an interpreter
+    add = function(interpreter) {
+      if (!is(interpreter, "Interpreter"))
+        stop("The interpreter must be an object of Interpreter.")
+      interpreters <<- c(list(interpreter), interpreters)
+    }
+  )
+)
+
+interpreters = Interpreters()
+Interpreter("", "") # the default one
+Interpreter("py", "python")
+Interpreter("pl", "perl")
+if (system("which matlab") == 0) {
+  Interpreter("m", "matlab")
+} else if (system("which octave") == 0) {
+  Interpreter("m", "octave")
+}
+
+InterpreterOrNULL <- setClassUnion("InterpreterOrNULL", members=c("Interpreter", "NULL"))
 #' this is a Recipe that makes a target file by running a script,
 #' interpreted by an interpreter.
 scriptRecipe <- setRefClass(
@@ -5,7 +96,7 @@ scriptRecipe <- setRefClass(
   contains = c("Recipe"),
   fields = c(
     #' the interpreter used to run the script.
-    interpreter = "character"
+    interpreter = "InterpreterOrNULL"
   ),
   methods = list(
     #' the method for making the target from a vector of dependences
@@ -21,28 +112,20 @@ scriptRecipe <- setRefClass(
       # check for interpreter
       run <- interpreter
       # if the interpreter is not specified, check if it is specified in the script first
-      if (nchar(run) == 0) {
+      if (is.null(run)) {
         first.line = readLines(script, n=1)
         match <- regexpr("^#!\\s*(?'handler'.*?)\\s*(\\n|$)", first.line[[1]], perl=TRUE)
         if (match > 0) {
           start <- attr(match, "capture.start")["handler"]
           length <- attr(match, "capture.length")["handler"]
-          run <- substr(script[[1]], start, start + length - 1)
+          run <- Interpreter("", substr(script[[1]], start, start + length - 1), FALSE)
         }
       }
       # if still not specified, check for thelist of known interpreters
-      if (nchar(run) == 0)
+      if (is.null(run))
         run <- interpreters$get(script)
-      # if still not specified, check for a global option
-      if (nchar(run) == 0) {
-        opt = getOption("make:interpreter")
-        if (is.character(opt)) run <- opt
-      }
-      # the default interpreter is /bin/sh
-      if (nchar(run) == 0) {
-        "/bin/sh --"
-      }
-      system(paste(c(run, script, target, depend), collapse = " ")) == 0
+      print(run)
+      run$run(script, target, depend)
     }
     ,
     #' pretty print a scriptRecipe object
@@ -53,42 +136,3 @@ scriptRecipe <- setRefClass(
     }
   )
 )
-
-Interpreters <- setRefClass(
-  "Interpreters",
-  fields = c(interpreters = "list"),
-  methods = list(
-    get = function(script) {
-      ext = tail(strsplit(script, "\\.")[[1]], n=1)
-      interpreters[[tolower(ext)]]
-    }
-    ,
-    set = function(ext, value) {
-      interpreters[[tolower(ext)]] <<- value
-    }
-    ,
-    initialize = function() {
-      interpreters <<- list(
-        "r" = "Rscript --vanilla",
-        "sh" = "sh --",
-        "py" = "python",
-        "pl" = "perl",
-        "m" = "matlab"
-      )
-    }
-  )
-)
-
-interpreters = Interpreters()
-
-#' find an interpreter for a script
-#' @param script the script
-getInterpreter <- function(script) {
-  interpreters$get(script)
-}
-
-#' set an interpreter for an extension
-#' @param ext the file extension
-setInterpreter <- function(ext, value) {
-  interpreters$set(ext, value)
-}
