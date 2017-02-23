@@ -62,11 +62,6 @@ makeRule <- setRefClass("makeRule",
       }
     }
     ,
-    #' returns the target, overrides the method in the parent (Rule) class.
-    getTarget = function() {
-      target
-    }
-    ,
     #' make a file
     #' @param file the file to make
     #' @param force force to build the file regardless if it is stale or not.

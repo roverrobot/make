@@ -47,7 +47,7 @@ Maker <- setRefClass(
     add.rule = function(rule, replace=FALSE, first.rule=FALSE) {
       if (!is(rule, "makeRule"))
         stop("A rule must be an object of the class Rule.")
-      name <- rule$getTarget()
+      name <- rule$target
       if (is.null(name) || length(name) == 0)
         stop("A rule must have a target")
       if (is.null(rules[[name]])) {
