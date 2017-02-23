@@ -1,8 +1,9 @@
 #' this class defines an interpreter to run a type of script (distinguished by extensions)
 Interpreter <- setRefClass(
   "Interpreter",
+  contains = c("FileHandler"),
   fields = c(
-    ext = "list",
+    #' the command to runa script
     command = "character"),
   methods = list(
     #' the method for making the target from a vector of dependences
@@ -22,32 +23,12 @@ Interpreter <- setRefClass(
       }
       system(paste(c(com, script, target, depend), collapse = " ")) == 0
     },
-    #' check if this interpreter can run a script
-    #' @param script the script to run
-    #' @return logical, TRUE if it can run, FALSE if it cannot.
-    canRun = function(script) {
-      # can run all scripts (i.e., the default) if no ext is specified
-      if (length(ext) == 0) return(TRUE)
-      has.ext <- function(file, ext) {
-        substring(file, length(file)-length(ext)) == ext
-      }
-      file <- tolower(script)
-      for (e in ext)
-        if (has.ext(file, e)) return(TRUE)
-      FALSE
-    }
-    ,
     #' initializer
     #' @param ext a list or a vector of extensions that this interpreter can run
     #' @param command the command to run a given script
     #' @param register whether toautomatically add to the interpreter manager
     initialize = function(ext = list(), command = "", register=TRUE) {
-      if (is.character(ext)) {
-        e <- as.list(ext[which(ext != "")])
-      } else if (is.list(ext)) {
-        e <- ext
-      } else stop("ext must be a list or a vector of extensions")
-      ext <<- e
+      callSuper(ext)
       command <<-command
       if (register) interpreters$add(.self)
     }
@@ -124,14 +105,16 @@ scriptRecipe <- setRefClass(
       # if still not specified, check for thelist of known interpreters
       if (is.null(run))
         run <- interpreters$get(script)
-      print(run)
       run$run(script, target, depend)
     }
     ,
     #' pretty print a scriptRecipe object
     show = function() {
       cat("scriptRecipe")
-      if (nchar(interpreter) > 0) cat(" interpretered by:", interpreter, "\n")
+      if (!is.null(interpreter)) {
+        cat(" interpretered by: ")
+        show(interpreter)
+      }
       cat("\n")
     }
   )

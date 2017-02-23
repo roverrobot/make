@@ -12,5 +12,6 @@ LazyData: true
 Collate:
   make.R
 	make.rule.R
+	file.handler.R
 	script.recipe.R
   hooks.R
