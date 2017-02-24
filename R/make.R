@@ -1,9 +1,10 @@
 #' the Maker class is responsible for making a file.
 Maker <- setRefClass(
   "Maker",
+  contains = c("Manager"),
   fields = c(
-    #' the list of make rules
-    rules = "list",
+    #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
+    explicit.rules = "list",
     #' the list of files currently being made
     making = "list"
   ),
@@ -19,14 +20,14 @@ Maker <- setRefClass(
         stop("circular dependences: ", making, " ", file)
       }
       making <<- c(making, file)
-      result = NULL
-      for (rule in rules) {
+      rule <- explicit.rules[[file]]
+      if (is.null(rule)) rule <- get(file)
+      if (!is.null(rule)) {
         result = tryCatch(rule$make(file, force),
                           error = function(e) {
                             making <<- list()
                             stop(geterrmessage(), call.=FALSE)})
-        if (!is.null(result)) break
-      }
+      } else result <- NULL
       making <<- making[-length(making)]
       if (is.null(result)) {
         if (file.exists(file) || silent) return(NULL)
@@ -43,20 +44,22 @@ Maker <- setRefClass(
     #' add a rule to the list of rules
     #' @param rule the rule to add
     #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
-    #' @param first.rule If TRUE, add to the top of the list. If FALSE, add to the bottom of the list. Note that the rules are searched from top to bottom until the first one which target matches the file to be made if found.
-    add.rule = function(rule, replace=FALSE, first.rule=FALSE) {
+    add.rule = function(rule, replace=FALSE) {
       if (!is(rule, "makeRule"))
         stop("A rule must be an object of the class Rule.")
       name <- rule$pattern
       if (is.null(name) || length(name) == 0)
         stop("A rule must have a target")
-      if (is.null(rules[[name]])) {
-        add <- list()
-        add[[name]] <- rule
-        rules <<- if (first.rule) c(add, rules) else c(rules, add)
-      } else if (replace) {
-        rules[[name]] <<- rule
+      if (rule$isImplicit()) {
+        add(rule)
+      } else if (is.null(explicit.rules[[name]]) || replace) {
+        explicit.rules[[name]] <<- rule
       } else stop("A rule for a target ", name, "already exits.")
+    }
+    ,
+    #' initializer
+    initialize = function() {
+      callSuper(class="makeRule")
     }
   )
 )
@@ -65,12 +68,13 @@ maker = Maker()
 
 #' return the list of rules
 getRules <- function () {
-  maker$rules
+  list(explicit=maker$explicit.rules, implicit=maker$handlers)
 }
 
 #' clear the list of rules and load from Makefile.R
 resetRules <- function() {
-  maker$rules <- list()
+  maker$explicit.rules <- list()
+  maker$handlers <- list()
   maker$making <- list()
   if (file.exists("Makefile.R"))
     try(source("Makefile.R"))

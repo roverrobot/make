@@ -27,13 +27,11 @@ makeRule <- setRefClass(
     #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (the match to target will fail), or TRUE (the rule always success), or FALSE (the rule always fail). Note that NULL/TRUE/FALSE are returned after successfully checked dependences.
     #' @param interpreter f using the first dependent file as a script, this is the interpreter to run the script.
     #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
-    #' @param first.rule If TRUE, add to the top of the list. If FALSE, add to the bottom of the list. Note that the rules are searched from top to bottom until the first one which target matches the file to be made if found.
     initialize = function(target,
                           recipe=scriptRecipe(interpreter=interpreter),
                           depend=c(),
                           interpreter = NULL,
-                          replace=FALSE,
-                          first.rule = FALSE) {
+                          replace=FALSE) {
       if (is(target, "formula")) {
         # split by +
         t <- strsplit(as.character(terms(target,
@@ -52,12 +50,12 @@ makeRule <- setRefClass(
 
       callSuper(pattern = target[[1]])
       recipe <<- recipe
-      maker$add.rule(.self, replace, first.rule)
+      maker$add.rule(.self, replace)
 
       # set up a rule for each target specified
       for (targ in target[-1]) {
         makeRule(target=targ, recipe=recipe, depend=depend, interpreter = interpreter,
-                 replace, first.rule)
+                 replace)
       }
     }
     ,
@@ -102,9 +100,14 @@ makeRule <- setRefClass(
       }
     }
     ,
+    #' whether the rule is implicit or not
+    isImplicit = function() {
+      grepl("%", pattern)
+    }
+    ,
     #' pretty print a makeRule object
     show = function() {
-      cat("~", depend, "\n")
+      cat(pattern, "~", depend, "\n")
       cat("recipe = ")
       if (is.null(recipe)) {
         cat("NULL\n")
