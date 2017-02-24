@@ -37,7 +37,7 @@ Maker <- setRefClass(
       if (is.null(rule)) {
         scanner <- scanners$get(file)
         if (!is.null(scanner)) {
-          rule <- makeRule(file, recipe=NULL)
+          rule <- makeRule(file, recipe=FALSE)
         }
       }
       # make
@@ -53,7 +53,7 @@ Maker <- setRefClass(
       }
       making <<- making[-length(making)]
       if (!result) {
-        if (!is.na(attr(result, "timestamp")) || silent) 
+        if (!is.null(attr(result, "timestamp")) || silent) 
           return (result)
         making <<- list()
         stop("do not know how to make file: ", file, call. = FALSE)
