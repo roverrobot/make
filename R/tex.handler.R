@@ -39,7 +39,9 @@ texHandler <- setRefClass(
       file <- connection.base$hooks[["base:file"]]$saved
       script <<- script
       if (!file.exists(script)) return(NULL)
-      lines <- readLines(file(script))
+      con <- file(script, "r")
+      lines <- readLines(con)
+      close(con)
       strip <- sapply(lines, function(line) {
         s <- strsplit(line, "%")[[1]]
         if (length(s) == 0) "" else s[1]
