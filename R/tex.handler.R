@@ -27,7 +27,7 @@ texHandler <- setRefClass(
       end = start + len - 1
       if (x[[1]] > 0) {
         mapply(function(start, end) {substr(content, start, end)}, start, end)
-      } else NULL
+      } else c()
     },
     #' check latex or plain tex
     #' @param file the tex file to check
@@ -54,7 +54,7 @@ texHandler <- setRefClass(
 tex.ext = c("%.tex", "%.ltx")
 
 #' this Interpreter subclass compiles a tex file
-texInterpreter <- setRefClass(
+texCompiler <- setRefClass(
   "texInterpreter",
   contains = c("Interpreter"),
   fields = c(
@@ -103,13 +103,17 @@ texInterpreter <- setRefClass(
       run.tex <- Interpreter(pattern=basename(script), command=run)
       exec(run.tex)
       aux <- texHandler(file.path(wd.tex, paste(base, "aux", sep=".")))
-      bib = aux$matchCommand("bibdata")
-      if (!is.null(bib)) {
-        if (!match.stem("%.bib", bib)) bib=file.path(wd.tex, paste(bib, "bib", sep="."))
-        if (!file.exists(bib))
-          stop("Bibtex database ", bib, " does not exit.")
-        run.bib <- Interpreter(pattern=bib, command=bibtex)
-        exec(run.bib)
+      bibs = aux$matchCommand("bibdata")
+      cite = aux$matchCommand("citation")
+      if (length(bibs) > 0 && length(cite) > 0) {
+        for (bib in bibs) {
+          if (!match.stem("%.bib", bib)) 
+            bib=file.path(wd.tex, paste(bib, "bib", sep="."))
+          if (!file.exists(bib))
+            stop("Bibtex database ", bib, " does not exit.")
+          run.bib <- Interpreter(pattern=bib, command=bibtex)
+          exec(run.bib)
+        }
         exec(run.tex)
         exec(run.tex)
       }
@@ -117,7 +121,7 @@ texInterpreter <- setRefClass(
   )
 )
 
-texInterpreter()
+texCompiler()
 
 #' checks if a path is an absolute path
 #' @param path the path to check
