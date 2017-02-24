@@ -3,12 +3,11 @@ Recipe <- setRefClass(
   "Recipe",
   methods = list(
     run = function(target, depend) {
-      FALSE
     }
   )
 )
 
-setClassUnion("RecipeField", members=c("Recipe", "function", "logical", "NULL"))
+setClassUnion("RecipeField", members=c("Recipe", "function", "logical"))
 setClassUnion("characterOrNULL", members=c("character", "NULL"))
 
 # makeRule implements a rule that is similar to a Makefile rule
@@ -27,7 +26,7 @@ makeRule <- setRefClass(
     #' initializer,
     #' @param target a formula specifying target ~ dependences, the dependences are separated by +, or a target name (string), in which case the dependences are specified by depend.
     #' @param depend the dependences, if target is formula, then depend is appended to the end of the dependences specified in the formula
-    #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (the match to target will fail), or TRUE (the rule always success), or FALSE (the rule always fail). Note that NULL/TRUE/FALSE are returned after successfully checked dependences.
+    #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or TRUE (the rule always success), or FALSE (do not know how to make the target). Note that TRUE/FALSE are returned after successfully checked dependences.
     #' @param interpreter f using the first dependent file as a script, this is the interpreter to run the script.
     #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
     initialize = function(target,
@@ -99,7 +98,7 @@ makeRule <- setRefClass(
         scan()
       }
       # if force or file does not exist, always build.
-      mtime <- timestamp
+      mtime <- -Inf
       # skip staled automatic dependence
       for (dep in depend) {
         result <- maker$make(dep, silent = TRUE)
@@ -110,15 +109,16 @@ makeRule <- setRefClass(
         # if dep.time is NA but make(dep) succeeded, ignore it
         mtime = max(mtime, dep.mtime, na.rm = TRUE)
       }
-      if (timestamp >= mtime) {
+      if (!is.infinite(timestamp) && timestamp >= mtime) {
         result <- TRUE
       } else if (is.null(recipe) || is.logical(recipe)) {
         result <- if (is.null(recipe)) FALSE else recipe
         timestamp <<- mtime
       } else {
-        result <- if (is.function(recipe)) {
+        if (is.function(recipe)) {
           recipe(file, depend)
         } else recipe$run(file, depend)
+        result <- TRUE
         timestamp <<- as.numeric(Sys.time())
       }
       attr(result, "timestamp") <- timestamp
