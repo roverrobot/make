@@ -21,7 +21,9 @@ Interpreter <- setRefClass(
       if (nchar(com) == 0) {
         com <- "/bin/sh --"
       }
-      system(paste(c(com, script, target, depend), collapse = " ")) == 0
+      com <- paste(c(com, script, target, depend), collapse = " ")
+      if (system(com) != 0)
+        stop("Failed to run: ", com)
     },
     #' initializer
     #' @param pattern a list or a vector of patterns that this interpreter can run
