@@ -14,7 +14,7 @@ Maker <- setRefClass(
     #' @param file the file to make
     #' @param force force to build the file regardless if it is stale or not.
     #' @param silent In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE. Still complains and stop if a rule matches but failed to make the file.
-    #' @return TRUE if successful, and NULL if do not know how to make it.
+    #' @return logical. TRUE if successful, and FALSE if do not know how to make it. If the make fails, the function stops with an error.
     make = function(file, force=FALSE, silent = FALSE) {
       if (file %in% making) {
         making <<- list()
@@ -33,15 +33,28 @@ Maker <- setRefClass(
           }
         }
       }
+      # see if we can find a scanner for file
+      if (is.null(rule)) {
+        scanner <- scanners$get(file)
+        if (!is.null(scanner)) {
+          rule <- makeRule(file, recipe=NULL)
+        }
+      }
+      # make
       if (!is.null(rule)) {
         result = tryCatch(rule$make(file, force),
                           error = function(e) {
                             making <<- list()
                             stop(geterrmessage(), call.=FALSE)})
-      } else result <- NULL
+      } else {
+        result <- FALSE
+        mtime <- file.mtime(file)
+        if (!is.na(mtime)) attr(result, "timestamp") <- as.numeric(mtime)
+      }
       making <<- making[-length(making)]
-      if (is.null(result)) {
-        if (file.exists(file) || silent) return(NULL)
+      if (!result) {
+        if (!is.na(attr(result, "timestamp")) || silent) 
+          return (result)
         making <<- list()
         stop("do not know how to make file: ", file, call. = FALSE)
       } else if (!result) {
@@ -49,7 +62,7 @@ Maker <- setRefClass(
         making <<- list()
         stop("failed to make file: ", file, call. = FALSE)
       }
-      TRUE
+      result
     }
     ,
     #' add a rule to the list of rules

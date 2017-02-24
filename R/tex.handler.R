@@ -4,6 +4,7 @@ texHandler <- setRefClass(
   fields = c(
     #' the tex file to process
     script = "character",
+    #' saves the content of the file
     content = "character"
   ),
   methods = list(
@@ -35,10 +36,10 @@ texHandler <- setRefClass(
     },
     # initializer
     initialize = function(script) {
+      file <- connection.base$hooks[["base:file"]]$saved
       script <<- script
-      if (!file.exists(script))
-        stop("latex file ", script, " does not exists.")
-      lines <- readLines(script)
+      if (!file.exists(script)) return(NULL)
+      lines <- readLines(file(script))
       strip <- sapply(lines, function(line) {
         s <- strsplit(line, "%")[[1]]
         if (length(s) == 0) "" else s[1]
@@ -116,13 +117,21 @@ texInterpreter <- setRefClass(
 
 texInterpreter()
 
+#' checks if a path is an absolute path
+#' @param path the path to check
+#' @return logical
+isAbsolutePath <- function(path) {
+  pattern <- if (.Platform$file.sep == "/") "^(/|~)" else "^([A-Za-z]:)?\\\\"
+  grepl(pattern, path)
+}
+
 texScanner <- setRefClass(
   "texScanner",
   contains = c("Scanner"),
   methods = list(
     #' scan a file for dependences
     #' @param file the file to scan
-    #' @return a list of dependences, or NULL if none
+    #' @return a vector of dependences, or c() if none
     scan = function(file) {
       add.suffix <- function(strs, suffix) {
         sapply(strs, function(str) {
@@ -135,16 +144,20 @@ texScanner <- setRefClass(
       figures <- tex$matchCommand("includegraphics")
       figures <- add.suffix(figures, "pdf")
       bibs <- tex$matchCommand("bibliography")
-      bibs <- strsplit(bibs, "\\s*,\\s*")[[1]]
+      bibs <- trimws(strsplit(bibs, ","))[[1]]
       bibs <- add.suffix(bibs, "bib")
       inputs <- tex$matchCommand("input", to.space = TRUE)
       inputs <- add.suffix(inputs, "tex")
-      c(figures, bibs, inputs)
+      deps <- c(figures, bibs, inputs)
+      sapply(deps, function(dep) {
+        if (isAbsolutePath(dep)) dep else file.path(dirname(file), dep)}
+      )
     },
     #' initializer
     initialize = function() {
       callSuper(pattern=tex.ext)
-      scanners$add(.self)
     }
   )
 )
+
+texScanner()

@@ -9,6 +9,7 @@ Recipe <- setRefClass(
 )
 
 setClassUnion("RecipeField", members=c("Recipe", "function", "logical", "NULL"))
+setClassUnion("characterOrNULL", members=c("character", "NULL"))
 
 # makeRule implements a rule that is similar to a Makefile rule
 makeRule <- setRefClass(
@@ -16,9 +17,11 @@ makeRule <- setRefClass(
   contains = c("FileHandler"),
   fields = c(
     #' a vector of dependent files
-    depend = "character",
+    depend = "characterOrNULL",
     #' the recipe to make the target
-    recipe = "RecipeField"
+    recipe = "RecipeField",
+    #' the time stamp for last scan, -Inf if not scanned
+    timestamp = "numeric"
   ),
   methods = list(
     #' initializer,
@@ -50,6 +53,7 @@ makeRule <- setRefClass(
 
       callSuper(pattern = target[[1]])
       recipe <<- recipe
+      timestamp <<- -Inf
       maker$add.rule(.self, replace)
 
       # set up a rule for each target specified
@@ -82,36 +86,66 @@ makeRule <- setRefClass(
     #' make a file
     #' @param file the file to make
     #' @param force force to build the file regardless if it is stale or not.
-    #' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
+    #' @return logical. TRUE if successful, and FALSE if do not know how to make it. If the make fails, the function stops with an error.
     make = function(file, force = FALSE) {
       # implicit rules cannot make a file
       if (isImplicit())
         stop("Needs an explicit rule to make a file")
-      # match file to targets, which can contain a stem, e.g., dir/%.c
-      target.info = file.info(file)
-      target.exists = !is.na(target.info$mtime)
-      # if force or file does not exist, always build.
-      old = !target.exists || force
-      for (dep in depend) {
-        result = maker$make(dep, silent = TRUE)
-        # if dep does not exist and no rule matches to make it, then it is the wrong rule.
-        if (is.null(result) && !file.exists(dep)) {
-          return(NULL)
-        }
-        depend.info = file.info(dep)
-        if (target.exists)
-          old = old || (depend.info$mtime > target.info$mtime)
+      # get the timestamp of file
+      mtime <- file.mtime(file)
+      mtime <- if (is.na(mtime)) Inf else as.numeric(mtime)
+      if (timestamp < mtime) {
+        timestamp <<- if (is.infinite(mtime)) -Inf else mtime
+        scan()
       }
-      if (!old) {
-        TRUE
-      } else if (is.null(recipe)) {
-        NULL
-      } else if (is.logical(recipe)) {
-        recipe
-      } else if (is.function(recipe)) {
-        recipe(file, depend)
+      # if force or file does not exist, always build.
+      mtime <- timestamp
+      # skip staled automatic dependence
+      for (dep in depend) {
+        result <- maker$make(dep, silent = TRUE)
+        dep.mtime <- attr(result, "timestamp")
+        # if dep does not exist and no rule matches to make it, then it is the wrong rule.
+        if (!result && is.null(dep.mtime)) 
+          return(FALSE)
+        # if dep.time is NA but make(dep) succeeded, ignore it
+        mtime = max(mtime, dep.mtime, na.rm = TRUE)
+      }
+      if (timestamp >= mtime) {
+        result <- TRUE
+      } else if (is.null(recipe) || is.logical(recipe)) {
+        result <- if (is.null(recipe)) FALSE else recipe
+        timestamp <<- mtime
       } else {
-        recipe$run(file, depend)
+        result <- if (is.function(recipe)) {
+          recipe(file, depend)
+        } else recipe$run(file, depend)
+        timestamp <<- as.numeric(Sys.time())
+      }
+      attr(result, "timestamp") <- timestamp
+      result
+    }
+    ,
+    #' scan for dependences
+    scan = function() {
+      if (isImplicit())
+        stop("Cannot scan an implicit target for depenences")
+      # remove the stale dependences
+      deps <- c()
+      for (dep in depend) {
+        dep.time <- attr(dep, "timestamp")
+        if (!is.null(dep.time)) next
+        deps <- c(deps, dep)
+      }
+      depend <<- deps
+      # if file does exists, do not scan
+      if (is.infinite(timestamp)) return()
+      # scan
+      scanner <- scanners$get(pattern)
+      if (is.null(scanner)) return()
+      deps <- scanner$scan(pattern)
+      for (dep in deps) {
+        attr(dep, "timestamp") <- timestamp
+        depend <<- c(depend, dep)
       }
     }
     ,
