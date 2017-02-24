@@ -48,7 +48,7 @@ texHandler <- setRefClass(
   )
 )
 
-tex.ext = list("tex", "ltx")
+tex.ext = c("%.tex", "%.ltx")
 
 #' this Interpreter subclass compiles a tex file
 texInterpreter <- setRefClass(
@@ -69,11 +69,11 @@ texInterpreter <- setRefClass(
     #' @param latex the latex compiler command
     #' @param tex the plain tex compiler command
     #' @param bibtex the bibtex processor command
-    initialize = function(ext = tex.ext, register=TRUE,
+    initialize = function(pattern = tex.ext, register=TRUE,
                           latex = "pdflatex -interaction=nonstopmode",
                           tex="pdftex -interaction=nonstopmode",
                           bibtex="bibtex") {
-      callSuper(ext, register=register)
+      callSuper(pattern=pattern, register=register)
       latex <<- latex
       tex <<- tex
       bibtex <<- bibtex
@@ -97,15 +97,15 @@ texInterpreter <- setRefClass(
       parts <- strsplit(base, "\\.")[[1]]
       base <- paste(parts[1:(length(parts)-1)], collapse=".")
       run <- if (h$isLatex()) latex else tex
-      run.tex <- Interpreter(command=run)
+      run.tex <- Interpreter(pattern=basename(script), command=run)
       exec(run.tex)
       aux <- texHandler(file.path(wd.tex, paste(base, "aux", sep=".")))
       bib = aux$matchCommand("bibdata")
       if (!is.null(bib)) {
-        if (!has.ext(bib, ".bib")) bib=file.path(wd.tex, paste(bib, "bib", sep="."))
+        if (!match.stem("%.bib", bib)) bib=file.path(wd.tex, paste(bib, "bib", sep="."))
         if (!file.exists(bib))
           stop("Bibtex database ", bib, " does not exit.")
-        run.bib <- Interpreter(command=bibtex)
+        run.bib <- Interpreter(pattern=bib, command=bibtex)
         exec(run.bib)
         exec(run.tex)
         exec(run.tex)
@@ -143,7 +143,7 @@ texScanner <- setRefClass(
     },
     #' initializer
     initialize = function() {
-      callSuper(ext=tex.ext)
+      callSuper(pattern=tex.ext)
       scanners$add(.self)
     }
   )

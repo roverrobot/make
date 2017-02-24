@@ -11,10 +11,10 @@ Recipe <- setRefClass(
 setClassUnion("RecipeField", members=c("Recipe", "function", "logical", "NULL"))
 
 # makeRule implements a rule that is similar to a Makefile rule
-makeRule <- setRefClass("makeRule",
+makeRule <- setRefClass(
+  "makeRule",
+  contains = c("FileHandler"),
   fields = c(
-    #' the target to make
-    target = "character",
     #' a vector of dependent files
     depend = "character",
     #' the recipe to make the target
@@ -22,42 +22,41 @@ makeRule <- setRefClass("makeRule",
   ),
   methods = list(
     #' initializer,
-    #' @param relation a formula specifying target ~ dependences, the dependences are separated by +
+    #' @param target a formula specifying target ~ dependences, the dependences are separated by +, or a target name (string), in which case the dependences are specified by depend.
+    #' @param depend the dependences, if target is formula, then depend is appended to the end of the dependences specified in the formula
     #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (the match to target will fail), or TRUE (the rule always success), or FALSE (the rule always fail). Note that NULL/TRUE/FALSE are returned after successfully checked dependences.
     #' @param interpreter f using the first dependent file as a script, this is the interpreter to run the script.
     #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
     #' @param first.rule If TRUE, add to the top of the list. If FALSE, add to the bottom of the list. Note that the rules are searched from top to bottom until the first one which target matches the file to be made if found.
-    initialize = function(relation=NULL, recipe=scriptRecipe(interpreter=interpreter),
-                          .target=NULL, .depend=c(),
+    initialize = function(target,
+                          recipe=scriptRecipe(interpreter=interpreter),
+                          depend=c(),
                           interpreter = NULL,
-                          replace=FALSE, first.rule = FALSE) {
-      if (is.null(relation) && is.null(target)) {
-        stop("Either relation or target must be specified")
-      }
-      if (is.null(.target)) {
-        if (!inherits(relation, "formula"))
-          stop("relation must be a formula")
+                          replace=FALSE,
+                          first.rule = FALSE) {
+      if (is(target, "formula")) {
         # split by +
-        t <- strsplit(as.character(terms(relation,
+        t <- strsplit(as.character(terms(target,
                                          allowDotAsName = TRUE,
                                          keep.order = TRUE)),
                       split="\\+(?=(?:[^`]*`[^`]*`)*[^`]*$)",
                       perl=TRUE)
         t <- sapply(t, function(s) {trimws(gsub("`", "", s))})
-        .target <- t[[2]][which(t[[2]] != ".")]
-        .depend <- c(t[[3]][which(t[[3]] != ".")], .depend)
-      }
-      if (length(.target) == 0)
+        target <- t[[2]][which(t[[2]] != ".")]
+        depend <<- c(t[[3]][which(t[[3]] != ".")], depend)
+      } else if (!is.character(target)) {
+        stop("The target must be either a formula or a string.")
+      } else if (length(target) == 0) {
         stop("a target must be specified.")
+      } else depend <<- depend
 
-      target <<- .target[[1]]
-      depend <<- .depend
+      callSuper(pattern = target[[1]])
       recipe <<- recipe
       maker$add.rule(.self, replace, first.rule)
 
       # set up a rule for each target specified
-      for (targ in .target[-1]) {
-        makeRule(recipe=recipe, .target=targ, .depend=.depend, interpreter = interpreter,
+      for (targ in target[-1]) {
+        makeRule(target=targ, recipe=recipe, depend=depend, interpreter = interpreter,
                  replace, first.rule)
       }
     }
@@ -69,7 +68,7 @@ makeRule <- setRefClass("makeRule",
     make = function(file, force = FALSE) {
       # match file to targets, which can contain a stem, e.g., dir/%.c
       stem <- NULL
-      matched <- match.stem(target, file)
+      matched <- match.stem(pattern, file)
       if (!matched) return(NULL)
       stem <- attr(matched, "stem")
       # if stem is not NULL, then this pattern is an implict rule

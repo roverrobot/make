@@ -11,8 +11,8 @@ Encoding: UTF-8
 LazyData: true
 Collate:
   make.R
-	make.rule.R
 	file.handler.R
+	make.rule.R
 	script.recipe.R
 	tex.handler.R
   hooks.R

@@ -24,11 +24,11 @@ Interpreter <- setRefClass(
       system(paste(c(com, script, target, depend), collapse = " ")) == 0
     },
     #' initializer
-    #' @param ext a list or a vector of extensions that this interpreter can run
+    #' @param pattern a list or a vector of patterns that this interpreter can run
     #' @param command the command to run a given script
     #' @param register whether toautomatically add to the interpreter manager
-    initialize = function(ext = list(), command = "", register=TRUE) {
-      callSuper(ext)
+    initialize = function(pattern, command = "", register=TRUE) {
+      callSuper(pattern=pattern)
       command <<-command
       if (register) interpreters$add(.self)
     }
@@ -36,13 +36,13 @@ Interpreter <- setRefClass(
 )
 
 interpreters = Manager(class="Interpreter")
-Interpreter("", "") # the default one
-Interpreter("py", "python")
-Interpreter("pl", "perl")
+Interpreter("%", "") # the default one
+Interpreter("%.py", "python")
+Interpreter("%.pl", "perl")
 if (system("which matlab") == 0) {
-  Interpreter("m", "matlab")
+  Interpreter("%.m", "matlab")
 } else if (system("which octave") == 0) {
-  Interpreter("m", "octave")
+  Interpreter("%.m", "octave")
 }
 
 InterpreterOrNULL <- setClassUnion("InterpreterOrNULL", members=c("Interpreter", "NULL"))
