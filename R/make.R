@@ -57,10 +57,6 @@ Maker <- setRefClass(
           return (result)
         making <<- list()
         stop("do not know how to make file: ", file, call. = FALSE)
-      } else if (!result) {
-        if (file.exists(file)) file.remove(file)
-        making <<- list()
-        stop("failed to make file: ", file, call. = FALSE)
       }
       result
     }
