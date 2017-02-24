@@ -49,9 +49,9 @@ Scanner <- setRefClass(
   methods = list(
     #' scan a file for dependences
     #' @param file the file to scan
-    #' @return a list of dependences, or NULL if none
+    #' @return a vector of dependences, or c() if none
     scan = function(file) {
-      NULL
+      c()
     },
     #' initializer
     initialize = function(pattern) {
