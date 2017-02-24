@@ -69,20 +69,15 @@ makeRule <- setRefClass("makeRule",
     make = function(file, force = FALSE) {
       # match file to targets, which can contain a stem, e.g., dir/%.c
       stem <- NULL
-      matched <- FALSE
-      for (pattern in target) {
-        match <- match.stem(pattern, file)
-        stem <- match$stem
-        matched <- match$match
-        if (matched) break
-      }
+      matched <- match.stem(target, file)
       if (!matched) return(NULL)
+      stem <- attr(matched, "stem")
       # if stem is not NULL, then this pattern is an implict rule
       # we create a specific rule for this file.
       deps <- if (is.null(stem)) depend else sub("%", stem, depend)
 
       target.info = file.info(file)
-      target.exists = length(which(!is.na(target.info))) > 0
+      target.exists = !is.na(target.info$mtime)
       # if force or file does not exist, always build.
       old = !target.exists || force
       for (dep in deps) {
@@ -119,22 +114,31 @@ makeRule <- setRefClass("makeRule",
   )
 )
 
-#' match file to a pattern, which can contain a stem, e.g., dir/%.c
-#' @param pattern the pattern to match to
+#' match file to patterns, which can contain a stem, e.g., dir/%.c
+#' @param pattern the pattern (or a list of vector of them) to match to
 #' @param file the file name
-#' @return a list, $match denoting if file matches pattern, and $stem is NULL if pattern does not contain %, or a string for the stem (matched part of %).
+#' @return logical indicating if file matches pattern, optionally with an attribute named "stem", returning the part of file matching the %, if the matching pattern contains a %.
 match.stem = function(pattern, file) {
+  # if pattern is a vector (or a list), match to each
+  if (length(pattern) > 1) {
+    for (pat in pattern) {
+      result = (match.stem(pat, file))
+      if (result) return(result)
+    }
+    return (FALSE)
+  }
+  # if we reach here, pattern is a single pattern.
   # if the pattern is not an implicit rule, i.e., does not contain %, then
   # we simply compare the canonical paths of pattern and file
   if (!grepl("%", pattern)) {
     pattern <- normalizePath(pattern, mustWork = FALSE)
     file <- normalizePath(file, mustWork = FALSE)
-    return(list(match=pattern == file, stem = NULL))
+    return (pattern == file)
   }
   # if we read here, then the pattern contains %, and is thus an implicit rule
   parts = strsplit(pattern, "%")[[1]]
   if (length(parts) > 2)
-    warning("Rule ", .Object@rule, " has an invalid pattern in the target.",
+    warning("pattern ", pattern, " has an invalid pattern in the target.",
             "Only a single % is allowed.")
   if (parts[[1]] != "") {
     n1 = nchar(parts[[1]])
@@ -154,11 +158,11 @@ match.stem = function(pattern, file) {
     file.abs = normalizePath(file, mustWork = FALSE)
     if (file.abs != file)
       return(match.stem(pattern, file.abs))
-    stem <- NULL
-  } else {
-    if (is.null(n2)) {
-      stem = substring(file, n1+1)
-    } else stem = substr(file, n1 + 1, n2 - 1)
+    return (FALSE)
   }
-  list(match=match, stem=stem)
+  if (is.null(n2)) {
+    stem = substring(file, n1+1)
+  } else stem = substr(file, n1 + 1, n2 - 1)
+  attr(match, "stem") = stem
+  match
 }
