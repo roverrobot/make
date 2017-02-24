@@ -1,10 +1,11 @@
 #' the Maker class is responsible for making a file.
 Maker <- setRefClass(
   "Maker",
-  contains = c("Manager"),
   fields = c(
     #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
     explicit.rules = "list",
+    #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
+    implicit.rules = "list",
     #' the list of files currently being made
     making = "list"
   ),
@@ -20,8 +21,18 @@ Maker <- setRefClass(
         stop("circular dependences: ", making, " ", file)
       }
       making <<- c(making, file)
+      # search for an explicit rule for file
       rule <- explicit.rules[[file]]
-      if (is.null(rule)) rule <- get(file)
+      # if not found, search for an implicit rule
+      if (is.null(rule)) {
+        for (r in implicit.rules) {
+          result = r$canHandle(file)
+          if (result) {
+            rule <- attr(result, "rule")
+            break
+          }
+        }
+      }
       if (!is.null(rule)) {
         result = tryCatch(rule$make(file, force),
                           error = function(e) {
@@ -51,15 +62,10 @@ Maker <- setRefClass(
       if (is.null(name) || length(name) == 0)
         stop("A rule must have a target")
       if (rule$isImplicit()) {
-        add(rule)
+        implicit.rules <<- c(implicit.rules, rule)
       } else if (is.null(explicit.rules[[name]]) || replace) {
         explicit.rules[[name]] <<- rule
       } else stop("A rule for a target ", name, "already exits.")
-    }
-    ,
-    #' initializer
-    initialize = function() {
-      callSuper(class="makeRule")
     }
   )
 )
@@ -68,13 +74,13 @@ maker = Maker()
 
 #' return the list of rules
 getRules <- function () {
-  list(explicit=maker$explicit.rules, implicit=maker$handlers)
+  list(explicit=maker$explicit.rules, implicit=maker$implicit.rules)
 }
 
 #' clear the list of rules and load from Makefile.R
 resetRules <- function() {
   maker$explicit.rules <- list()
-  maker$handlers <- list()
+  maker$implicit.rules <- list()
   maker$making <- list()
   if (file.exists("Makefile.R"))
     try(source("Makefile.R"))

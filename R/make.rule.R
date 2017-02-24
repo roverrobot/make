@@ -59,25 +59,40 @@ makeRule <- setRefClass(
       }
     }
     ,
+    #' canHandle checks if a rule can handle a specific file.
+    #' @param file the file to check
+    #' @return a logical indicating whether the file can be handled. In the case that it can be handled, it contains an attributed named "rule". If the rule is implicit, the returned rule is an explicit rule that can handle the file. If the rule is explicit, the returned rule is itself.
+    canHandle = function(file) {
+      result = callSuper(file)
+      if (result) {
+        stem <- attr(result, "stem")
+        if (is.null(stem)) {
+          attr(result, "rule") <- .self
+        } else {
+          deps <- if (is.null(stem)) depend else sub("%", stem, depend)
+          attr(result, "rule") <- makeRule(target = file,
+                                           recipe=recipe,
+                                           depend = deps,
+                                           interpreter = interpreter)
+        }
+      }
+      result
+    }
+    ,
     #' make a file
     #' @param file the file to make
     #' @param force force to build the file regardless if it is stale or not.
     #' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
     make = function(file, force = FALSE) {
+      # implicit rules cannot make a file
+      if (isImplicit())
+        stop("Needs an explicit rule to make a file")
       # match file to targets, which can contain a stem, e.g., dir/%.c
-      stem <- NULL
-      matched <- match.stem(pattern, file)
-      if (!matched) return(NULL)
-      stem <- attr(matched, "stem")
-      # if stem is not NULL, then this pattern is an implict rule
-      # we create a specific rule for this file.
-      deps <- if (is.null(stem)) depend else sub("%", stem, depend)
-
       target.info = file.info(file)
       target.exists = !is.na(target.info$mtime)
       # if force or file does not exist, always build.
       old = !target.exists || force
-      for (dep in deps) {
+      for (dep in depend) {
         result = maker$make(dep, silent = TRUE)
         # if dep does not exist and no rule matches to make it, then it is the wrong rule.
         if (is.null(result) && !file.exists(dep)) {
@@ -94,9 +109,9 @@ makeRule <- setRefClass(
       } else if (is.logical(recipe)) {
         recipe
       } else if (is.function(recipe)) {
-        recipe(file, deps)
+        recipe(file, depend)
       } else {
-        recipe$run(file, deps)
+        recipe$run(file, depend)
       }
     }
     ,
