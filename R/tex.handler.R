@@ -150,8 +150,10 @@ texScanner <- setRefClass(
       figures <- tex$matchCommand("includegraphics")
       figures <- add.suffix(figures, "pdf")
       bibs <- tex$matchCommand("bibliography")
-      bibs <- trimws(strsplit(bibs, ","))[[1]]
-      bibs <- add.suffix(bibs, "bib")
+      if (length(bibs) > 0) {
+        bibs <- trimws(strsplit(bibs, ","))[[1]]
+        bibs <- add.suffix(bibs, "bib")
+      }
       inputs <- tex$matchCommand("input", to.space = TRUE)
       inputs <- add.suffix(inputs, "tex")
       deps <- c(figures, bibs, inputs)
