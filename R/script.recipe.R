@@ -100,3 +100,30 @@ scriptRecipe <- setRefClass(
     }
   )
 )
+
+#' the interpreter for R scripts
+RInterpreter <- setRefClass(
+  "RInterpreter",
+  contains = c("Interpreter"),
+  methods = list(
+    #' initializer
+    #' @param pattern a list or a vector of patterns that this interpreter can run
+    #' @param register whether toautomatically add to the interpreter manager
+    initialize = function(pattern = c("%.R", "%.r"), register = TRUE) {
+      callSuper(pattern = pattern, command = "", register = register)
+    },
+    #' the method for making the target from a vector of dependences
+    #' @param script the script to run
+    #' @param target the target file
+    #' @param depend the vector of dependences, the first file in depend is the script name
+    run = function(script, target, depend) {
+      commandArgs <- function(trailingOnly = FALSE) {
+        c(script, target, depend)
+      }
+      con = connection.base$hooks[["base:file"]]$saved(script, "r")
+      tryCatch(source(con, local=TRUE), finally=close(con))
+    }
+  )
+)
+
+RInterpreter()
