@@ -26,7 +26,6 @@ parseTarget <- function(target, env) {
     call = {
       first <- parseTarget(l[[2]], env)
       if (length(l) > 2) second <- parseTarget(l[[3]], env)
-      cat("op=", as.character(l[[1]]),"\n")
       switch (
         as.character(l[[1]]),
         "~" = return(list(target=first, depend=second)),
