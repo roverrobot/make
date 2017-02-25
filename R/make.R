@@ -5,7 +5,9 @@ Maker <- setRefClass(
     #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
     explicit.rules = "list",
     #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
-    implicit.rules = "list"
+    implicit.rules = "list",
+    #' the directory that this maker is responsible for, i.e., the current working directory when the maker is created.
+    dir = "character"
   ),
   methods = list(
     #' make a file
@@ -20,6 +22,10 @@ Maker <- setRefClass(
           result <- make(f, foruce, silent)
         return(result)
       }
+      # only make files in the dir
+      abs <- normalizePath(file, mustWork = FALSE)
+      if (isAbsolutePath(abs) && substr(abs, 1, nchar(dir)) != dir)
+        return (FALSE)
       # check for circular dependence
       making <- attr(file, "making")
       if (is.null(making)) making <- c()
@@ -97,6 +103,7 @@ getRules <- function () {
 
 #' clear the list of rules and load from Makefile.R
 resetRules <- function() {
+  maker$dir <- file.path(getwd(), "")
   maker$clear()
   if (file.exists("Makefile.R"))
     try(source("Makefile.R"))
@@ -107,5 +114,8 @@ resetRules <- function() {
 #' @param force force to build the file regardless if it is stale or not.
 #' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
 make <- function(file, force=FALSE) {
-  maker$make(file)
+  if (length(maker$dir) == 0) return (FALSE)
+  result <- maker$make(file)
+  attr(result, "timestamp") <- NULL
+  result
 }
