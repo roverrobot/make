@@ -18,7 +18,7 @@ Maker <- setRefClass(
     make = function(file, force=FALSE, silent = FALSE) {
       if (file %in% making) {
         making <<- list()
-        stop("circular dependences: ", making, " ", file)
+        stop("circular dependences: ", making, " ", file, call.=FALSE)
       }
       making <<- c(making, file)
       # search for an explicit rule for file
@@ -37,15 +37,17 @@ Maker <- setRefClass(
       if (is.null(rule)) {
         scanner <- scanners$get(file)
         if (!is.null(scanner)) {
-          rule <- makeRule(file, recipe=FALSE)
+          rule <- makeRule(target=(file), recipe=FALSE, env=environment())
         }
       }
       # make
       if (!is.null(rule)) {
-        result = tryCatch(rule$make(file, force),
-                          error = function(e) {
-                            making <<- list()
-                            stop(geterrmessage(), call.=FALSE)})
+        result = FALSE
+        tryCatch(result <- rule$make(file, force),
+                 finally = if (!result) {
+                   making <<- list()
+                   if (file.exists(file)) file.remove(file)
+                   })
       } else {
         result <- FALSE
         mtime <- file.mtime(file)

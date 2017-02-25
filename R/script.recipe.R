@@ -23,7 +23,7 @@ Interpreter <- setRefClass(
       }
       com <- paste(c(com, script, target, depend), collapse = " ")
       if (system(com) != 0)
-        stop("Failed to run: ", com)
+        stop("Failed to run: ", com, call.=FALSE)
     },
     #' initializer
     #' @param pattern a list or a vector of patterns that this interpreter can run
@@ -64,7 +64,10 @@ scriptRecipe <- setRefClass(
     run = function(target, depend) {
       # the script is the first dependent file
       if (length(depend) == 0)
-        stop("A script must be specified as the first dependent file.")
+        stop("In making ", 
+             target, 
+             ": a script must be specified as the first dependent file.", 
+             call.=FALSE)
       script <- depend[[1]]
       if (!file.exists(script))
         stop("The recipe script ", script, " does not exist.")

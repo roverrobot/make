@@ -10,6 +10,37 @@ Recipe <- setRefClass(
 setClassUnion("RecipeField", members=c("Recipe", "function", "logical"))
 setClassUnion("characterOrNULL", members=c("character", "NULL"))
 
+#' parse a target
+#' @param target an expression
+#' @return a target and its dependences
+parseTarget <- function(target, env) {
+  vlist <- function(v) {
+    res = c()
+    for (i in v)
+      res <- c(res, eval(as.name(i), envir=env))
+    res
+  }
+  l <- as.list(target)
+  switch (
+    class(target),
+    call = {
+      first <- parseTarget(l[[2]], env)
+      if (length(l) > 2) second <- parseTarget(l[[3]], env)
+      cat("op=", as.character(l[[1]]),"\n")
+      switch (
+        as.character(l[[1]]),
+        "~" = return(list(target=first, depend=second)),
+        "+" = return(c(first, second)),
+        "/" = return(paste(c(first, second), collapse = .Platform$file.sep)),
+        ":" = return(paste(first, second, sep = ":"))
+      )
+    },
+    name = return(as.character(l[[1]])),
+    character = return(as.character(l[[1]])),
+    "(" = return(vlist(parseTarget(l[[2]], env)))
+  )
+}
+
 # makeRule implements a rule that is similar to a Makefile rule
 makeRule <- setRefClass(
   "makeRule",
@@ -33,23 +64,22 @@ makeRule <- setRefClass(
                           recipe=scriptRecipe(interpreter=interpreter),
                           depend=c(),
                           interpreter = NULL,
-                          replace=FALSE) {
-      if (is(target, "formula")) {
-        # split by +
-        t <- strsplit(as.character(terms(target,
-                                         allowDotAsName = TRUE,
-                                         keep.order = TRUE)),
-                      split="\\+(?=(?:[^`]*`[^`]*`)*[^`]*$)",
-                      perl=TRUE)
-        t <- sapply(t, function(s) {trimws(gsub("`", "", s))})
-        target <- t[[2]][which(t[[2]] != ".")]
-        depend <<- c(t[[3]][which(t[[3]] != ".")], depend)
-      } else if (!is.character(target)) {
-        stop("The target must be either a formula or a string.")
-      } else if (length(target) == 0) {
-        stop("a target must be specified.")
-      } else depend <<- depend
-
+                          replace=FALSE,
+                          env = environment()) {
+      parsed <- parseTarget(substitute(target), env)
+      if (is.list(parsed)) {
+        target <- parsed[[1]]
+        depend <<- c(parsed[[2]], depend)
+      } else {
+        target <- parsed
+        depend <<- depend
+      }
+      if (length(target) == 0) {
+        stop("Target ", 
+             as.character(substitute(target)), 
+             ": a target must be specified.", call.=FALSE)
+      }
+      
       callSuper(pattern = target[[1]])
       recipe <<- recipe
       timestamp <<- -Inf
@@ -57,8 +87,9 @@ makeRule <- setRefClass(
 
       # set up a rule for each target specified
       for (targ in target[-1]) {
-        makeRule(target=targ, recipe=recipe, depend=depend, interpreter = interpreter,
-                 replace)
+        makeRule(target=(targ), recipe=recipe, depend=depend, 
+                 interpreter = interpreter,
+                 replace, env=environment())
       }
     }
     ,
@@ -73,10 +104,11 @@ makeRule <- setRefClass(
           attr(result, "rule") <- .self
         } else {
           deps <- if (is.null(stem)) depend else sub("%", stem, depend)
-          attr(result, "rule") <- makeRule(target = file,
+          attr(result, "rule") <- makeRule(target = (file),
                                            recipe=recipe,
                                            depend = deps,
-                                           interpreter = interpreter)
+                                           interpreter = interpreter,
+                                           env = environment())
         }
       }
       result
