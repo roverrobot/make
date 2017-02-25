@@ -130,8 +130,11 @@ makeRule <- setRefClass(
       }
       # if force or file does not exist, always build.
       mtime <- -Inf
+      making <- attr(file, "making")
+      if (is.null(making)) making <- c(file)
       # skip staled automatic dependence
       for (dep in depend) {
+        attr(dep, "making") <- making
         result <- maker$make(dep, silent = TRUE)
         dep.mtime <- attr(result, "timestamp")
         # if dep does not exist and no rule matches to make it, then it is the wrong rule.

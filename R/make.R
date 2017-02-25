@@ -5,9 +5,7 @@ Maker <- setRefClass(
     #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
     explicit.rules = "list",
     #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
-    implicit.rules = "list",
-    #' the list of files currently being made
-    making = "list"
+    implicit.rules = "list"
   ),
   methods = list(
     #' make a file
@@ -16,11 +14,19 @@ Maker <- setRefClass(
     #' @param silent In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE. Still complains and stop if a rule matches but failed to make the file.
     #' @return logical. TRUE if successful, and FALSE if do not know how to make it. If the make fails, the function stops with an error.
     make = function(file, force=FALSE, silent = FALSE) {
+      # if asked to make a list of files, make them one by one
+      if (length(file) > 1) {
+        for (f in file)
+          result <- make(f, foruce, silent)
+        return(result)
+      }
+      # check for circular dependence
+      making <- attr(file, "making")
+      if (is.null(making)) making <- c()
       if (file %in% making) {
-        making <<- list()
         stop("circular dependences: ", making, " ", file, call.=FALSE)
       }
-      making <<- c(making, file)
+      attr(file, "making") <- c(making, file)
       # search for an explicit rule for file
       rule <- explicit.rules[[file]]
       # if not found, search for an implicit rule
@@ -44,20 +50,15 @@ Maker <- setRefClass(
       if (!is.null(rule)) {
         result = FALSE
         tryCatch(result <- rule$make(file, force),
-                 finally = if (!result) {
-                   making <<- list()
-                   if (file.exists(file)) file.remove(file)
-                   })
+                 finally = if (!result && file.exists(file)) file.remove(file))
       } else {
         result <- FALSE
         mtime <- file.mtime(file)
         if (!is.na(mtime)) attr(result, "timestamp") <- as.numeric(mtime)
       }
-      making <<- making[-length(making)]
       if (!result) {
         if (!is.null(attr(result, "timestamp")) || silent) 
           return (result)
-        making <<- list()
         stop("do not know how to make file: ", file, call. = FALSE)
       }
       result
@@ -78,6 +79,12 @@ Maker <- setRefClass(
         explicit.rules[[name]] <<- rule
       } else stop("A rule for a target ", name, "already exits.")
     }
+    , 
+    #' clear the rules
+    clear = function() {
+      explicit.rules <<- list()
+      implicit.rules <<- list()
+    }
   )
 )
 
@@ -90,9 +97,7 @@ getRules <- function () {
 
 #' clear the list of rules and load from Makefile.R
 resetRules <- function() {
-  maker$explicit.rules <- list()
-  maker$implicit.rules <- list()
-  maker$making <- list()
+  maker$clear()
   if (file.exists("Makefile.R"))
     try(source("Makefile.R"))
 }
