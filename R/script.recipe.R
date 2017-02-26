@@ -70,7 +70,7 @@ scriptRecipe <- setRefClass(
              call.=FALSE)
       script <- depend[[1]]
       if (!file.exists(script))
-        stop("The recipe script ", script, " does not exist.")
+        stop("The recipe script ", script, " does not exist.", call.=FALSE)
       # check for interpreter
       run <- interpreter
       # if the interpreter is not specified, check if it is specified in the script first
@@ -83,9 +83,11 @@ scriptRecipe <- setRefClass(
           run <- Interpreter("", substr(script[[1]], start, start + length - 1), FALSE)
         }
       }
-      # if still not specified, check for thelist of known interpreters
+      # if still not specified, check for the list of known interpreters
       if (is.null(run))
         run <- interpreters$get(script)
+      if (is.null(run))
+        stop("Do not know how to interpret ", script, ".", call.=FALSE)
       run$run(script, target, depend)
     }
     ,
@@ -121,7 +123,16 @@ RInterpreter <- setRefClass(
         c(script, target, depend)
       }
       con = connection.base$hooks[["base:file"]]$saved(script, "r")
+      tracker$push()
       tryCatch(source(con, local=TRUE), finally=close(con))
+      deps <- tracker$pop()
+      if (length(deps) > 0) {
+        rule <- maker$explicit.rules[[script]]
+        if (is.null(rule)) {
+          rule <- makeRule((script), recipe=FALSE, env=environment())
+        }
+        rule$addDependences(deps)
+      }
     }
   )
 )

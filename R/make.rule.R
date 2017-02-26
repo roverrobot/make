@@ -46,7 +46,7 @@ makeRule <- setRefClass(
   contains = c("FileHandler"),
   fields = c(
     #' a vector of dependent files
-    depend = "characterOrNULL",
+    depend = "list",
     #' the recipe to make the target
     recipe = "RecipeField",
     #' the time stamp for last scan, -Inf if not scanned
@@ -61,17 +61,17 @@ makeRule <- setRefClass(
     #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
     initialize = function(target,
                           recipe=scriptRecipe(interpreter=interpreter),
-                          depend=c(),
+                          depend=list(),
                           interpreter = NULL,
                           replace=FALSE,
                           env = environment()) {
       parsed <- parseTarget(substitute(target), env)
       if (is.list(parsed)) {
         target <- parsed[[1]]
-        depend <<- c(parsed[[2]], depend)
+        depend <<- as.list(c(parsed[[2]], depend))
       } else {
         target <- parsed
-        depend <<- depend
+        depend <<- as.list(depend)
       }
       if (length(target) == 0) {
         stop("Target ", 
@@ -149,13 +149,11 @@ makeRule <- setRefClass(
         result <- if (is.null(recipe)) FALSE else recipe
         timestamp <<- mtime
       } else {
-        tracker$push()
         if (is.function(recipe)) {
           recipe(file, depend)
         } else recipe$run(file, depend)
         result <- TRUE
         timestamp <<- as.numeric(Sys.time())
-        addDependences(tracker$pop())
       }
       attr(result, "timestamp") <- timestamp
       result
@@ -166,11 +164,10 @@ makeRule <- setRefClass(
       if (isImplicit())
         stop("Cannot scan an implicit target for depenences")
       # remove the stale dependences
-      deps <- c()
+      deps <- list()
       for (dep in depend) {
         dep.time <- attr(dep, "timestamp")
-        if (!is.null(dep.time)) next
-        deps <- c(deps, dep)
+        if (is.null(dep.time)) deps <- c(deps, dep)
       }
       depend <<- deps
       # if file does exists, do not scan
@@ -183,11 +180,12 @@ makeRule <- setRefClass(
     ,
     #' add dependences
     #' @param deps the dependences
+    #' @param timestamp the timestamp to be added to the deps
     addDependences = function(deps) {
       for (dep in deps)
         if (!(dep %in% depend)) {
-          attr(dep, "timestamp") <- timestamp
           depend <<- c(depend, dep)
+          attr(depend[[length(depend)]], "timestamp") <<- timestamp
         }
     }
     ,
@@ -198,10 +196,13 @@ makeRule <- setRefClass(
     ,
     #' pretty print a makeRule object
     show = function() {
-      cat(pattern, "~", depend, "\n")
+      cat(pattern, "~")
+      for (dep in depend) 
+        cat("", dep)
+      cat("\n")
       cat("recipe = ")
-      if (is.null(recipe)) {
-        cat("NULL\n")
+      if (is.logical(recipe)) {
+        cat(recipe, "\n")
       } else methods::show(recipe)
     }
   )

@@ -54,9 +54,10 @@ Maker <- setRefClass(
       }
       # make
       if (!is.null(rule)) {
-        result = FALSE
+        result = NULL
         tryCatch(result <- rule$make(file, force),
-                 finally = if (!result && file.exists(file)) file.remove(file))
+                 finally = if (is.null(result) && file.exists(file)) file.remove(file))
+        if (is.null(result)) stop("failed to make ", file, call.=FALSE)
       } else {
         result <- FALSE
         mtime <- file.mtime(file)
@@ -75,15 +76,15 @@ Maker <- setRefClass(
     #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
     add.rule = function(rule, replace=FALSE) {
       if (!is(rule, "makeRule"))
-        stop("A rule must be an object of the class Rule.")
+        stop("A rule must be an object of the class Rule.", call.=FALSE)
       name <- rule$pattern
       if (is.null(name) || length(name) == 0)
-        stop("A rule must have a target")
+        stop("A rule must have a target", call.=FALSE)
       if (rule$isImplicit()) {
         implicit.rules <<- c(implicit.rules, rule)
       } else if (is.null(explicit.rules[[name]]) || replace) {
         explicit.rules[[name]] <<- rule
-      } else stop("A rule for a target ", name, "already exits.")
+      } else stop("A rule for a target ", name, " already exits.", call.=FALSE)
     }
     , 
     #' clear the rules
