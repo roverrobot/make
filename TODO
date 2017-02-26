@@ -1,0 +1,3 @@
+- handle function recipe for automatic dependences.
+- save makeRules to Makefile.RData
+- update Makefile.RData from Makefile.R automatically.
