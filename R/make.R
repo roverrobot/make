@@ -113,15 +113,22 @@ resetRules <- function() {
 #' tracks the files being automatically opened.
 MakeTracker <- setRefClass(
   "MakeTracker",
-  fields = c(listeners = "list"),
+  fields = c(
+    #' a stack of trackers
+    listeners = "list"),
   methods = list(
+    #' adding the current file to the top tracker
+    #' @param file the tracked file
     track = function(file) {
       if (length(listeners) != 0)
         listeners[[1]] <<- c(listeners[[1]], file)
     },
+    #' starts a new tracker
     push = function() {
       listeners <<- c(list(c()), listeners)
     },
+    #' finish tracking and pop off the stack
+    #' @return the files being used 
     pop = function() {
       l <- listeners[[1]]
       listeners <<- listeners[-1]
