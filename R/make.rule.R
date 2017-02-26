@@ -34,7 +34,7 @@ parseTarget <- function(target, env) {
         ":" = return(paste(first, second, sep = ":"))
       )
     },
-    name = return(as.character(l[[1]])),
+    name = return(if (l[[1]]==".") c() else as.character(l[[1]])),
     character = return(as.character(l[[1]])),
     "(" = return(vlist(parseTarget(l[[2]], env)))
   )
@@ -149,11 +149,13 @@ makeRule <- setRefClass(
         result <- if (is.null(recipe)) FALSE else recipe
         timestamp <<- mtime
       } else {
+        tracker$push()
         if (is.function(recipe)) {
           recipe(file, depend)
         } else recipe$run(file, depend)
         result <- TRUE
         timestamp <<- as.numeric(Sys.time())
+        addDependences(tracker$pop())
       }
       attr(result, "timestamp") <- timestamp
       result
@@ -176,11 +178,17 @@ makeRule <- setRefClass(
       # scan
       scanner <- scanners$get(pattern)
       if (is.null(scanner)) return()
-      deps <- scanner$scan(pattern)
-      for (dep in deps) {
-        attr(dep, "timestamp") <- timestamp
-        depend <<- c(depend, dep)
-      }
+      addDependences(scanner$scan(pattern))
+    }
+    ,
+    #' add dependences
+    #' @param deps the dependences
+    addDependences = function(deps) {
+      for (dep in deps)
+        if (!(dep %in% depend)) {
+          attr(dep, "timestamp") <- timestamp
+          depend <<- c(depend, dep)
+        }
     }
     ,
     #' whether the rule is implicit or not

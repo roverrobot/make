@@ -109,12 +109,35 @@ resetRules <- function() {
     try(source("Makefile.R"))
 }
 
+#' tracks the files being automatically opened.
+MakeTracker <- setRefClass(
+  "MakeTracker",
+  fields = c(listeners = "list"),
+  methods = list(
+    track = function(file) {
+      if (length(listeners) != 0)
+        listeners[[1]] <<- c(listeners[[1]], file)
+    },
+    push = function() {
+      listeners <<- c(list(c()), listeners)
+    },
+    pop = function() {
+      l <- listeners[[1]]
+      listeners <<- listeners[-1]
+      l
+    }
+  )
+)
+
+tracker <- MakeTracker()
+
 #' make a file
 #' @param file the file to make
 #' @param force force to build the file regardless if it is stale or not.
 #' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
 make <- function(file, force=FALSE) {
   if (length(maker$dir) == 0) return (FALSE)
+  tracker$track(file)
   result <- maker$make(file)
   attr(result, "timestamp") <- NULL
   result
