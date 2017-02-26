@@ -22,3 +22,42 @@ This is an R package to provide a make-like utility for R, in R.
       - The script is interpreted by an interpreter.
       - The currently supported interpreters include: pdftex or pdflatex (%.tex), sh (default), perl (%.pl), python (%.py), matlab or octave (%.m), R (%.R).
       - New interpreters can be defined in Makefile.R using `Interpreter(pattern, command)`, for example, the sh interpreter is defined as `Interpreter("%", "sh --")`.
+
+Here is an example Makefile.R
+<code>
+# implicit rule for *.tex -> *.pdf
+# note the use of `` for files that are illegal in a formula.
+makeRule(`%.pdf` ~ `%.tex`)
+# this rule will generate an error on circular dependences
+makeRule(at.txt ~ at.txt)
+# an implicit rule for at*.txt, but will fail because of an error in test.sh
+makeRule(`at%.txt` ~ test.sh)
+
+makeRule(r ~ test.R)
+
+exclude <- function(a, b) {
+  a[!(a %in% b)]
+}
+
+# as long as a rule does not create a file, and there is no corresponding file
+# with the same name, then it is a phony rule.
+makeRule(clean, recipe = function(target, depend) {
+  files.txt <- Sys.glob("at*.txt")
+  files.data <- exclude(Sys.glob("test.*"), c("test.sh", "test.R"))
+  files <- c(files.tex, files.txt, files.data)
+  if (length(files) > 0) file.remove(files)
+})
+
+# create an RData file out of a csv file
+makeRule(test.RData ~ test.csv, recipe=function(target, depend) {
+  csv = depend[[1]]
+  data = read.csv(csv)
+  save(file=target, data)
+})
+
+# create a csv file by hand
+makeRule(test.csv ~ ., recipe=function(target, depend) {
+  data = data.frame(a=c(1,2), b=c("yes", "no"))
+  write.csv(file=target, row.names = FALSE, data)
+})
+</code>
