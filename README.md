@@ -24,21 +24,22 @@ This is an R package to provide a make-like utility for R, in R.
       - New interpreters can be defined in Makefile.R using `Interpreter(pattern, command)`, for example, the sh interpreter is defined as `Interpreter("%", "sh --")`.
 
 Here is an example Makefile.R
-<code>
+
+```R
 # implicit rule for *.tex -> *.pdf
 # note the use of `` for files that are illegal in a formula.
 makeRule(`%.pdf` ~ `%.tex`)
-# this rule will generate an error on circular dependences
+
+# using this rule will generate an error on circular dependences
 makeRule(at.txt ~ at.txt)
+
 # an implicit rule for at*.txt, but will fail because of an error in test.sh
 makeRule(`at%.txt` ~ test.sh)
 
-makeRule(r ~ test.R)
-
+# a helper function
 exclude <- function(a, b) {
   a[!(a %in% b)]
 }
-
 # as long as a rule does not create a file, and there is no corresponding file
 # with the same name, then it is a phony rule.
 makeRule(clean, recipe = function(target, depend) {
@@ -60,4 +61,4 @@ makeRule(test.csv ~ ., recipe=function(target, depend) {
   data = data.frame(a=c(1,2), b=c("yes", "no"))
   write.csv(file=target, row.names = FALSE, data)
 })
-</code>
+```
