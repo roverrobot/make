@@ -15,7 +15,7 @@ texHandler <- setRefClass(
     matchCommand = function(command,
                             first.command = FALSE,
                             to.space=FALSE) {
-      pattern <- paste(if (first.command) "^(?:%.*?$)*\\s*" else "",
+      pattern <- paste(if (first.command) "^\\s*" else "",
                        "\\\\", command,
                        "(?:(?:\\s+",
                        if (to.space) {
