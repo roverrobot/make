@@ -46,17 +46,16 @@ Maker <- setRefClass(
         }
       }
       # see if we can find a scanner for file
-      if (is.null(rule)) {
+      if (is.null(rule) && file.exists(file)) {
         scanner <- scanners$get(file)
         if (!is.null(scanner)) {
-          rule <- makeRule(target=(file), recipe=FALSE, env=environment())
+          rule <- makeRule(target=(file), recipe=TRUE, env=environment())
         }
       }
       # make
       if (!is.null(rule)) {
         result = NULL
-        tryCatch(result <- rule$make(file, force),
-                 finally = if (is.null(result) && file.exists(file)) file.remove(file))
+        try(result <- rule$make(file, force))
         if (is.null(result)) stop("failed to make ", file, call.=FALSE)
       } else {
         result <- FALSE

@@ -103,11 +103,22 @@ makeRule <- setRefClass(
           attr(result, "rule") <- .self
         } else {
           deps <- if (is.null(stem)) depend else sub("%", stem, depend)
+          # checks for missing dependences
+          for (dep in deps) {
+            result <- NULL
+            try(result <- maker$make(dep, silent = TRUE))
+            if (is.null(result)) return(FALSE)
+            dep.mtime <- attr(result, "timestamp")
+            # if dep does not exist and no rule matches to make it, then it is the wrong rule.
+            if (!result && is.null(dep.mtime)) 
+              return(FALSE)
+          }
           attr(result, "rule") <- makeRule(target = (file),
                                            recipe=recipe,
                                            depend = deps,
                                            interpreter = interpreter,
-                                           env = environment())
+                                           env = environment(),
+                                           replace = TRUE)
         }
       }
       result
@@ -139,23 +150,29 @@ makeRule <- setRefClass(
         dep.mtime <- attr(result, "timestamp")
         # if dep does not exist and no rule matches to make it, then it is the wrong rule.
         if (!result && is.null(dep.mtime)) 
-          return(FALSE)
+          stop("missing dependence ", dep, call.=FALSE)
         # if dep.time is NA but make(dep) succeeded, ignore it
         mtime = max(mtime, dep.mtime, na.rm = TRUE)
       }
       if (!is.infinite(timestamp) && timestamp >= mtime) {
         result <- TRUE
-      } else if (is.null(recipe) || is.logical(recipe)) {
-        result <- if (is.null(recipe)) FALSE else recipe
+      } else if (is.logical(recipe)) {
+        result <- recipe
         timestamp <<- mtime
       } else {
-        if (is.function(recipe)) {
-          recipe(file, depend)
-        } else recipe$run(file, depend)
-        result <- TRUE
+        tryCatch( {
+          result <- NULL
+          if (is.function(recipe)) {
+            recipe(file, depend)
+          } else recipe$run(file, depend)
+          result <- TRUE},
+          finally = if (is.null(result) && file.exists(file)) 
+            file.remove(file)
+        )
         timestamp <<- as.numeric(Sys.time())
       }
-      attr(result, "timestamp") <- timestamp
+      if (!is.infinite(timestamp))
+        attr(result, "timestamp") <- timestamp
       result
     }
     ,
