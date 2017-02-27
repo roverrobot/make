@@ -131,7 +131,7 @@ RInterpreter <- setRefClass(
       if (length(deps) > 0) {
         rule <- maker$explicit.rules[[script]]
         if (is.null(rule)) {
-          rule <- makeRule((script), recipe=FALSE, env=environment())
+          rule <- makeRule((script), recipe=TRUE, env=environment())
         }
         rule$addDependences(deps)
       }
