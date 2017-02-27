@@ -105,9 +105,10 @@ makeRule <- setRefClass(
           deps <- if (is.null(stem)) depend else sub("%", stem, depend)
           # checks for missing dependences
           for (dep in deps) {
-            result <- NULL
-            try(result <- maker$make(dep, silent = TRUE))
-            if (is.null(result)) return(FALSE)
+            if (file.exists(dep)) next
+            result <- FALSE
+            try(result <- maker$make(dep, silent = FALSE))
+            if (!result) return(FALSE)
             dep.mtime <- attr(result, "timestamp")
             # if dep does not exist and no rule matches to make it, then it is the wrong rule.
             if (!result && is.null(dep.mtime)) 
