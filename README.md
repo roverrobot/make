@@ -5,6 +5,8 @@ This is an R package to provide a make-like utility for R, in R.
 - Write an R script named Makefile.R in your working directory.
 - load the make library, e.g., library(make)
 - either directly open any file, which will be automatically made according to the rules defined in Makefile.R, or use the make function in the form of `make("filename")`.
+- resetRules() to reload the rules in Makefile.R
+- getRules() for a list of rules currently defined.
 
 ## Makefile.R
 - all rules are defined by the "makeRule" function:
