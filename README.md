@@ -59,7 +59,7 @@ makeRule(test.RData ~ test.csv, recipe=function(target, depend) {
 })
 
 # create a csv file by hand
-makeRule(test.csv ~ ., recipe=function(target, depend) {
+makeRule(test.csv, recipe=function(target, depend) {
   data = data.frame(a=c(1,2), b=c("yes", "no"))
   write.csv(file=target, row.names = FALSE, data)
 })
