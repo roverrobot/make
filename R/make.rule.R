@@ -107,7 +107,7 @@ makeRule <- setRefClass(
           for (dep in deps) {
             if (file.exists(dep)) next
             result <- FALSE
-            try(result <- maker$make(dep, silent = FALSE))
+            try(result <- maker$make(dep, silent = TRUE))
             if (!result) return(FALSE)
             dep.mtime <- attr(result, "timestamp")
             # if dep does not exist and no rule matches to make it, then it is the wrong rule.
