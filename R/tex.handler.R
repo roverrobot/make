@@ -15,12 +15,15 @@ texHandler <- setRefClass(
     matchCommand = function(command,
                             first.command = FALSE,
                             to.space=FALSE) {
-      pattern <- paste(if (first.command) "^" else "",
+      pattern <- paste(if (first.command) "^(?:%.*?$)*\\s*" else "",
                        "\\\\", command,
-                       "(?:\\s+(?'match1'",
-                       if (to.space) "[^\\s]*(?:\\s|$)" else ".?",
-                       ")|\\s*",
-                       "(?:\\[[^]]*\\])?{(?'match2'[^}]*)})", sep="")
+                       "(?:(?:\\s+",
+                       if (to.space) {
+                         "(?'match1'.*?)[\\s$]" 
+                       } else "(?'match1'.?)",
+                       ")|(?:\\s*",
+                       "(?:\\[[^]]*\\])?{(?'match2'[^}]*)}))", 
+                       sep="")
       x <- gregexpr(pattern, content, perl=TRUE)[[1]]
       start <- rowSums(attr(x, "capture.start"))
       len <- rowSums(attr(x, "capture.length"))
@@ -158,7 +161,7 @@ texScanner <- setRefClass(
       inputs <- add.suffix(inputs, "tex")
       deps <- c(figures, bibs, inputs)
       sapply(deps, function(dep) {
-        if (isAbsolutePath(dep)) dep else file.path(dirname(file), dep)}
+        if (isAbsolutePath(dep) || dirname(file) == ".") dep else file.path(dirname(file), dep)}
       )
     },
     #' initializer
