@@ -142,7 +142,7 @@ tracker <- MakeTracker()
 #' @param file the file to make
 #' @param force force to build the file regardless if it is stale or not.
 #' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
-make <- function(file, force=FALSE) {
+make <- function(file="all", force=FALSE) {
   if (length(maker$dir) == 0) return (FALSE)
   tracker$track(file)
   result <- maker$make(file)
