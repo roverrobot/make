@@ -120,11 +120,17 @@ RInterpreter <- setRefClass(
     #' @param depend the vector of dependences, the first file in depend is the script name
     run = function(script, target, depend) {
       commandArgs <- function(trailingOnly = FALSE) {
-        v = c(target, depend)
+        v <- c(target, depend)
         args = sapply(v, identity)
         if (trailingOnly) args else c(script, args)
       }
-      con = connection.base$hooks[["base:file"]]$saved(script, "r")
+      `<<-` <- function(name, x) {
+        var <- as.character(substitute(name))
+        env <- parent.frame()
+        env[[var]] <- NULL
+        do.call(base::`<<-`, list(var, x))
+      }
+      con <- connection.base$hooks[["base:file"]]$saved(script, "r")
       tracker$push()
       tryCatch(source(con, local=TRUE), finally=close(con))
       deps <- tracker$pop()
