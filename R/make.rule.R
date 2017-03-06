@@ -179,7 +179,7 @@ MakeRule <- R6::R6Class(
       # remove the stale dependences
       deps <- sapply(private$depend, function(dep) {
         if (is.null(attr(dep, "timestamp"))) dep else NA})
-      private$depend <<- as.list(deps[which(!is.na(deps))])
+      private$depend <- as.list(deps[which(!is.na(deps))])
       # if file does exists, do not scan
       if (is.infinite(private$timestamp)) return()
       # scan

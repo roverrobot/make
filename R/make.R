@@ -106,7 +106,7 @@ Maker <- R6::R6Class(
       if (rule$isImplicit()) {
         private$implicit.rules <- c(private$implicit.rules, rule)
       } else if (is.null(private$explicit.rules[[name]]) || replace) {
-        private$explicit.rules[[name]] <<- rule
+        private$explicit.rules[[name]] <- rule
       } else stop("A rule for a target ", name, " already exits.", call.=FALSE)
     }
     , 
