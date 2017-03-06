@@ -1,13 +1,13 @@
 #' this class processes a TeX/LaTeX file
-texHandler <- setRefClass(
+texHandler <- R6::R6Class(
   "texHandler",
-  fields = c(
+  private = list(
     #' the tex file to process
-    script = "character",
+    script = NULL,
     #' saves the content of the file
-    content = "character"
+    content = NULL
   ),
-  methods = list(
+  public = list(
     #' matches a command in the form \textbackslash command[]\{\}
     #' @param command the tex command to search for
     #' @param first.command whether this command should be the first command
@@ -24,12 +24,12 @@ texHandler <- setRefClass(
                        ")|(?:\\s*",
                        "(?:\\[[^]]*\\])?{(?'match2'[^}]*)}))", 
                        sep="")
-      x <- gregexpr(pattern, content, perl=TRUE)[[1]]
+      x <- gregexpr(pattern, private$content, perl=TRUE)[[1]]
       start <- rowSums(attr(x, "capture.start"))
       len <- rowSums(attr(x, "capture.length"))
       end = start + len - 1
       if (x[[1]] > 0) {
-        mapply(function(start, end) {substr(content, start, end)}, start, end)
+        mapply(function(start, end) {substr(private$content, start, end)}, start, end)
       } else c()
     },
     #' check latex or plain tex
@@ -40,7 +40,7 @@ texHandler <- setRefClass(
     # initializer
     initialize = function(script) {
       file <- connection.base$hooks[["base:file"]]$saved
-      script <<- script
+      private$script <- script
       if (!file.exists(script)) return(NULL)
       con <- file(script, "r")
       lines <- readLines(con)
@@ -49,7 +49,7 @@ texHandler <- setRefClass(
         s <- strsplit(line, "%")[[1]]
         if (length(s) == 0) "" else s[1]
       })
-      content <<- paste(strip, sep="", collapse="\n")
+      private$content <- paste(strip, sep="", collapse="\n")
     }
   )
 )
@@ -101,7 +101,7 @@ texCompiler <- R6::R6Class(
                  error=function(e) { stop(geterrmessage(), call. = FALSE)},
                  finally = setwd(wd.save))
       }
-      h <- texHandler(script)
+      h <- texHandler$new(script)
       wd.save <- getwd()
       script <- normalizePath(script)
       wd.tex = dirname(script)
@@ -155,7 +155,7 @@ texScanner <- R6::R6Class(
           if (length(parts) > 1) str else paste(str, suffix, sep=".")
         })
       }
-      tex <- texHandler(file)
+      tex <- texHandler$new(file)
       figures <- tex$matchCommand("includegraphics")
       figures <- add.suffix(figures, "pdf")
       bibs <- tex$matchCommand("bibliography")
