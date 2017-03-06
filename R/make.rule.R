@@ -44,13 +44,15 @@ parseTarget <- function(target, env) {
 MakeRule <- R6::R6Class(
   "MakeRule",
   inherit = FileHandler,
-  public = list(
+  private = list(
     #' a vector of dependent files
     depend = list(),
     #' the recipe to make the target
     recipe = NULL,
     #' the time stamp for last scan, -Inf if not scanned
-    timestamp = -Inf,
+    timestamp = -Inf
+  ),
+  public = list(
     #' initializer,
     #' @param target a pattern or a file name
     #' @param depend the dependences, 
@@ -62,7 +64,7 @@ MakeRule <- R6::R6Class(
                           depend=list(),
                           interpreter = NULL,
                           replace=FALSE) {
-      self$depend <- as.list(depend)
+      private$depend <- as.list(depend)
       # error if no target is specified.
       if (length(target) == 0) {
         stop("Target ", 
@@ -74,13 +76,13 @@ MakeRule <- R6::R6Class(
         stop("Invalid recipe.", call. = FALSE)
       # for each target, set up a rule
       self$pattern = target[[1]]
-      self$recipe <- recipe
-      self$timestamp <- -Inf
+      private$recipe <- recipe
+      private$timestamp <- -Inf
       maker$add.rule(self, replace)
 
       # set up a rule for each target specified
       for (targ in target[-1]) {
-        MakeRule$new(targ, recipe=self$recipe, depend=self$depend, 
+        MakeRule$new(targ, recipe=private$recipe, depend=private$depend, 
                  interpreter = interpreter,
                  replace)
       }
@@ -96,7 +98,7 @@ MakeRule <- R6::R6Class(
         if (is.null(stem)) {
           attr(result, "rule") <- self
         } else {
-          deps <- if (is.null(stem)) self$depend else sub("%", stem, self$depend)
+          deps <- if (is.null(stem)) private$depend else sub("%", stem, private$depend)
           # checks for missing dependences
           for (dep in deps) {
             if (file.exists(dep)) next
@@ -109,7 +111,7 @@ MakeRule <- R6::R6Class(
               return(FALSE)
           }
           attr(result, "rule") <- MakeRule$new(target = file,
-                                           recipe=self$recipe,
+                                           recipe=private$recipe,
                                            depend = deps,
                                            interpreter = self$interpreter,
                                            replace = TRUE)
@@ -129,8 +131,8 @@ MakeRule <- R6::R6Class(
       # get the timestamp of file
       mtime <- file.mtime(file)
       mtime <- if (is.na(mtime)) Inf else as.numeric(mtime)
-      if (self$timestamp < mtime) {
-        self$timestamp <- if (is.infinite(mtime)) -Inf else mtime
+      if (private$timestamp < mtime) {
+        private$timestamp <- if (is.infinite(mtime)) -Inf else mtime
         self$scan()
       }
       # if force or file does not exist, always build.
@@ -138,7 +140,7 @@ MakeRule <- R6::R6Class(
       making <- attr(file, "making")
       if (is.null(making)) making <- c(file)
       # skip staled automatic dependence
-      for (dep in self$depend) {
+      for (dep in private$depend) {
         attr(dep, "making") <- making
         result <- maker$make(dep, silent = TRUE)
         dep.mtime <- attr(result, "timestamp")
@@ -148,25 +150,25 @@ MakeRule <- R6::R6Class(
         # if dep.time is NA but make(dep) succeeded, ignore it
         mtime = max(mtime, dep.mtime, na.rm = TRUE)
       }
-      if (!is.infinite(self$timestamp) && self$timestamp >= mtime) {
+      if (!is.infinite(private$timestamp) && private$timestamp >= mtime) {
         result <- TRUE
-      } else if (is.null(self$recipe)) {
+      } else if (is.null(private$recipe)) {
         result <- TRUE
-        self$timestamp <- mtime
+        private$timestamp <- mtime
       } else {
         tryCatch( {
           result <- NULL
-          if (is.function(self$recipe)) {
-            self$recipe(file, self$depend)
-          } else self$recipe$run(file, self$depend)
+          if (is.function(private$recipe)) {
+            private$recipe(file, private$depend)
+          } else private$recipe$run(file, private$depend)
           result <- TRUE},
           finally = if (is.null(result) && file.exists(file)) 
             file.remove(file)
         )
-        self$timestamp <- as.numeric(Sys.time())
+        private$timestamp <- as.numeric(Sys.time())
       }
-      if (!is.infinite(self$timestamp))
-        attr(result, "timestamp") <- self$timestamp
+      if (!is.infinite(private$timestamp))
+        attr(result, "timestamp") <- private$timestamp
       result
     }
     ,
@@ -175,11 +177,11 @@ MakeRule <- R6::R6Class(
       if (self$isImplicit())
         stop("Cannot scan an implicit target for depenences")
       # remove the stale dependences
-      deps <- sapply(self$depend, function(dep) {
+      deps <- sapply(private$depend, function(dep) {
         if (is.null(attr(dep, "timestamp"))) dep else NA})
-      self$depend <<- as.list(deps[which(!is.na(deps))])
+      private$depend <<- as.list(deps[which(!is.na(deps))])
       # if file does exists, do not scan
-      if (is.infinite(self$timestamp)) return()
+      if (is.infinite(private$timestamp)) return()
       # scan
       scanner <- scanners$get(self$pattern)
       if (is.null(scanner)) return()
@@ -190,10 +192,10 @@ MakeRule <- R6::R6Class(
     #' @param deps the dependences
     #' @param timestamp the timestamp to be added to the deps
     addDependences = function(deps) {
-      deps <- deps[which(!(deps %in% self$depend))]
+      deps <- deps[which(!(deps %in% private$depend))]
       for (dep in deps) {
-        attr(dep, "timestamp") <- self$timestamp
-        self$depend <- c(self$depend, dep)
+        attr(dep, "timestamp") <- private$timestamp
+        private$depend <- c(private$depend, dep)
       }
     }
     ,
@@ -205,15 +207,15 @@ MakeRule <- R6::R6Class(
     #' pretty print a makeRule object
     print = function() {
       cat(self$pattern, "~")
-      if (length(self$depend) > 0) {
-        cat("", self$depend[[1]])
-        for (dep in self$depend[-1]) 
+      if (length(private$depend) > 0) {
+        cat("", private$depend[[1]])
+        for (dep in private$depend[-1]) 
           cat(" +", dep)
       }
       cat("\nrecipe = ")
-      if (is.null(self$recipe)) {
+      if (is.null(private$recipe)) {
         cat("\n")
-      } else print(self$recipe)
+      } else print(private$recipe)
     }
   )
 )
