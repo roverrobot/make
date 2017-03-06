@@ -1,44 +1,22 @@
 #' the Maker class is responsible for making a file.
 #' @include file.handler.R
-Maker <- setRefClass(
+Maker <- R6::R6Class(
   "Maker",
-  fields = c(
+  inherit = FileHandler, 
+  private = list(
     #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
-    explicit.rules = "list",
+    explicit.rules = list(),
     #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
-    implicit.rules = "list",
-    #' the directory that this maker is responsible for, i.e., the current working directory when the maker is created.
-    dir = "character"
-  ),
-  methods = list(
-    #' make a file
+    implicit.rules = list(),
+    #' returns a rule for handling a file
     #' @param file the file to make
-    #' @param force force to build the file regardless if it is stale or not.
-    #' @param silent In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE. Still complains and stop if a rule matches but failed to make the file.
-    #' @return logical. TRUE if successful, and FALSE if do not know how to make it. If the make fails, the function stops with an error.
-    make = function(file, force=FALSE, silent = FALSE) {
-      # if asked to make a list of files, make them one by one
-      if (length(file) > 1) {
-        for (f in file)
-          result <- make(f, foruce, silent)
-        return(result)
-      }
-      # only make files in the dir
-      abs <- normalizePath(file, mustWork = FALSE)
-      if (isAbsolutePath(abs) && substr(abs, 1, nchar(dir)) != dir)
-        return (FALSE)
-      # check for circular dependence
-      making <- attr(file, "making")
-      if (is.null(making)) making <- c()
-      if (file %in% making) {
-        stop("circular dependences: ", making, " ", file, call.=FALSE)
-      }
-      attr(file, "making") <- c(making, file)
+    #' @return a MakeRule object, or NULL if do not know how to make it.
+    ruleForFile = function(file) {
       # search for an explicit rule for file
-      rule <- explicit.rules[[file]]
+      rule <- private$explicit.rules[[file]]
       # if not found, search for an implicit rule
       if (is.null(rule)) {
-        for (r in implicit.rules) {
+        for (r in private$implicit.rules) {
           result = r$canHandle(file)
           if (result) {
             rule <- attr(result, "rule")
@@ -53,6 +31,51 @@ Maker <- setRefClass(
           rule <- MakeRule$new(target=file, recipe=NULL)
         }
       }
+      rule
+    }
+  ),
+  active = list(
+    #' returns the dir that this maker manages
+    dir = function() { self$pattern }
+  ),
+  public = list(
+    #' check if the file can be handled by this maker
+    #' 
+    #' it checks if the file is in the dir (self$pattern)
+    #' @param file the file to check
+    canHandle = function(file) {
+      # only make files in the dir
+      abs <- normalizePath(file, mustWork = FALSE)
+      dir <- self$dir
+      return (!isAbsolutePath(abs) || substr(abs, 1, nchar(dir)) == dir)
+    }
+    ,
+    #' make a file
+    #' @param file the file to make
+    #' @param force force to build the file regardless if it is stale or not.
+    #' @param silent In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE. Still complains and stop if a rule matches but failed to make the file.
+    #' @return logical. TRUE if successful, and FALSE if do not know how to make it. If the make fails, the function stops with an error.
+    make = function(file, force=FALSE, silent = FALSE) {
+      # if asked to make a list of files, make them one by one
+      if (length(file) > 1) {
+        for (f in file) {
+          result <- make(f, foruce, silent)
+          if (!result) break
+        }
+        return(result)
+      }
+      # only make files in the dir
+      if (!self$canHandle(file))
+        return (FALSE)
+      # check for circular dependence
+      making <- attr(file, "making")
+      if (is.null(making)) making <- c()
+      if (file %in% making) {
+        stop("circular dependences: ", making, " ", file, call.=FALSE)
+      }
+      attr(file, "making") <- c(making, file)
+      # search for an explicit rule for file
+      rule <- private$ruleForFile(file)
       # make
       if (!is.null(rule)) {
         result = NULL
@@ -81,59 +104,79 @@ Maker <- setRefClass(
       if (is.null(name) || length(name) == 0)
         stop("A rule must have a target", call.=FALSE)
       if (rule$isImplicit()) {
-        implicit.rules <<- c(implicit.rules, rule)
-      } else if (is.null(explicit.rules[[name]]) || replace) {
-        explicit.rules[[name]] <<- rule
+        private$implicit.rules <- c(private$implicit.rules, rule)
+      } else if (is.null(private$explicit.rules[[name]]) || replace) {
+        private$explicit.rules[[name]] <<- rule
       } else stop("A rule for a target ", name, " already exits.", call.=FALSE)
     }
     , 
     #' clear the rules
     clear = function() {
-      explicit.rules <<- list()
-      implicit.rules <<- list()
+      private$explicit.rules <- list()
+      private$implicit.rules <- list()
+    }
+    ,
+    #' initializer
+    #' @param dir the directory that this maker managers
+    initialize = function(dir) {
+      if (!file.exists(dir))
+        stop("The directory ", dir, " does not exist.", call.=FALSE)
+      self$pattern <- dir
+      self$clear()
+    }
+    ,
+    #' print the maker
+    print = function() {
+      cat("dir =", self$dir, "\n")
+      cat("explicit rules:\n")
+      for (r in private$explicit.rules)
+        print(r)
+      cat("implicit rules:\n")
+      for (r in private$implicit.rules)
+        print(r)
     }
   )
 )
 
-maker = Maker()
+maker = Maker$new(getwd())
 
 #' clear the list of rules and load from Makefile.R
 #' @export
 resetRules <- function() {
-  maker$dir <- file.path(getwd(), "")
-  maker$clear()
+  maker = Maker$new(getwd())
   if (file.exists("Makefile.R"))
     try(source("Makefile.R"))
 }
 
 #' tracks the files being automatically opened.
-MakeTracker <- setRefClass(
+MakeTracker <- R6::R6Class(
   "MakeTracker",
-  fields = c(
+  private = list(
     #' a stack of trackers
-    listeners = "list"),
-  methods = list(
+    listeners = list()
+  ),
+  public = list(
     #' adding the current file to the top tracker
     #' @param file the tracked file
     track = function(file) {
-      if (length(listeners) != 0)
-        listeners[[1]] <<- c(listeners[[1]], file)
+      if (length(private$listeners) != 0)
+        private$listeners[[1]] <- c(private$listeners[[1]], file)
     },
     #' starts a new tracker
     push = function() {
-      listeners <<- c(list(c()), listeners)
+      private$listeners <- c(list(c()), private$listeners)
     },
     #' finish tracking and pop off the stack
     #' @return the files being used 
     pop = function() {
-      l <- listeners[[1]]
-      listeners <<- listeners[-1]
+      l <- private$listeners[[1]]
+      private$listeners <- private$listeners[-1]
       l
     }
   )
 )
 
-tracker <- MakeTracker()
+tracker <- MakeTracker$new()
 
 #' make a file
 #' @param file the file to make
