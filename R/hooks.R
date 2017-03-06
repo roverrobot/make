@@ -4,44 +4,54 @@
 #' subclasses must implement a hook method
 Hook <- R6::R6Class(
   "Hook",
-  public = list(
+  private = list(
     #' the package to hook into
     package = NULL,
     #' the function that replaces
     fun = NULL,
     #' the saved version of the function
-    saved = NULL,
+    saved = NULL
+  ),
+  active = list(
+    #' returns the function that this hook intercepts
+    f = function() {paste(private$package, private$fun, sep="::")},
+    #' check if the hook is set
+    isSet = function() {
+      !is.null(private$package) && !is.null(private$fun) 
+    }
+  ),
+  public = list(
     #' set the function hook
     set = function() {
-      if (is.null(self$fun) || is.null(self$hook))
+      if (!self$isSet)
         stop("the hook is not initialized.", call.=FALSE)
-      if (!is.null(self$saved))
-        stop("the function ", self$fun, " in package ", self$package, 
+      if (!is.null(private$saved))
+        stop("the function ", private$fun, " in package ", self$package, 
              "has been saved.", call.=FALSE)
-      pkg <- getNamespace(self$package)
-      self$saved <- pkg[[self$fun]]
-      unlockBinding(self$fun, pkg)
-      pkg[[self$fun]] <- self$hook
-      lockBinding(self$fun, pkg)
+      pkg <- getNamespace(private$package)
+      private$saved <- pkg[[private$fun]]
+      unlockBinding(private$fun, pkg)
+      pkg[[private$fun]] <- self$hook
+      lockBinding(private$fun, pkg)
     }
     ,
     #' restores the functions intercepted by the hooks.
     restore = function() {
-      if (is.null(self$saved)) return()
-      pkg <- getNamespace(self$package)
-      unlockBinding(self$fun, pkg)
-      pkg[[self$fun]] <- self$saved
-      lockBinding(self$fun, pkg)
-      self$saved <- NULL
+      if (is.null(private$saved)) return()
+      pkg <- getNamespace(private$package)
+      unlockBinding(private$fun, pkg)
+      pkg[[private$fun]] <- private$saved
+      lockBinding(private$fun, pkg)
+      private$saved <- NULL
     }
     ,
     #' the initializaer
     #' @param fun the function to intercept
     #' @param package the package were the function is defined.
     initialize = function(fun, package="base") {
-      self$package <- package
-      self$fun <- fun
-      self$saved <- NULL
+      private$package <- package
+      private$fun <- fun
+      private$saved <- NULL
     }
   )
 )
@@ -52,7 +62,7 @@ fileHook <- R6::R6Class(
   inherit = Hook,
   public = list(
     hook=function(description="", open="", ...) {
-      con = self$saved(description, "", ...)
+      con = private$saved(description, "", ...)
       if (open != "") open(con, open)
       con
     }
@@ -68,7 +78,7 @@ openHook <- R6::R6Class(
       info = summary.connection(con)
       if (is.file(info) && grepl("r", open))
         make(info$description)
-      self$saved(con, open, ...)
+      private$saved(con, open, ...)
     }
     ,
     initialize= function() {
@@ -89,7 +99,7 @@ readCharHook <- R6::R6Class(
         file = info$description
       } else file = con
       make(file)
-      self$saved(con, ...)
+      private$saved(con, ...)
     }
     ,
     #' initializer
@@ -109,17 +119,23 @@ is.file = function(con) {
 #' connections from the base package
 BaseConnection <- R6::R6Class(
   "BaseConnection",
-  public = list(
+  private = list(
     #' the list of hooks that is related to connections
-    hooks = list(),
+    hooks = list()
+  ),
+  active = list(
+    #' the names of the hooks
+    hookNames = function() { names(private$hooks) }
+  ),
+  public = list(
     #' set all the hooks
     #' @param name seet a specific hook given by name, or all the hooks if name=="".
     set = function(name = "") {
       if (name == "") {
-        for (hook in self$hooks)
+        for (hook in private$hooks)
           hook$set()
       } else {
-        hook = self$hooks[[name]]
+        hook = private$hooks[[name]]
         if (is.null(hook)) {
           warning("The hook ", name, "does not exist. Skip setting it.")
         } else hook$set()
@@ -130,10 +146,10 @@ BaseConnection <- R6::R6Class(
     #' @param name the specific hook with name, or all the hooks if name==""
     restore = function(name = "") {
       if (name == "") {
-        for (hook in self$hooks)
+        for (hook in private$hooks)
           hook$restore()
       } else {
-        hook = self$hooks[[name]]
+        hook = private$hooks[[name]]
         if (is.null(hook)) {
           warning("The hook ", name, "does not exist. Skip setting it.")
         } else hook$restore()
@@ -142,10 +158,9 @@ BaseConnection <- R6::R6Class(
     ,
     #' add a hook
     add = function(hook) {
-      if (hook$package == "" || hook$fun == "" || is.null(hook$hook))
+      if (!hook$isSet)
         stop("the hook is uninitialized.", call.=FALSE)
-      name = paste(hook$package, hook$fun, sep=":")
-      self$hooks[[name]] <<- hook
+      private$hooks[[hook$f]] <- hook
     }
     ,
     #' the initializer
