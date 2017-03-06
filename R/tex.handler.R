@@ -1,4 +1,4 @@
-#' this class processes a tex file
+#' this class processes a TeX/LaTeX file
 texHandler <- setRefClass(
   "texHandler",
   fields = c(
@@ -8,10 +8,10 @@ texHandler <- setRefClass(
     content = "character"
   ),
   methods = list(
-    #' matches a command in the form \command[]{}
+    #' matches a command in the form \textbackslash command[]\{\}
     #' @param command the tex command to search for
     #' @param first.command whether this command should be the first command
-    #' @param to.space whether the parameter is up to the first space (in the absence of {})
+    #' @param to.space whether the parameter is up to the first space (in the absence of \{\})
     matchCommand = function(command,
                             first.command = FALSE,
                             to.space=FALSE) {
@@ -57,18 +57,17 @@ texHandler <- setRefClass(
 tex.ext = c("%.tex", "%.ltx")
 
 #' this Interpreter subclass compiles a tex file
-texCompiler <- setRefClass(
+#' @include script.recipe.R
+texCompiler <- R6::R6Class(
   "texInterpreter",
-  contains = c("Interpreter"),
-  fields = c(
+  inherit = Interpreter,
+  public = list(
     #' the latex compiler
     latex = "character",
     #' the tex compiler
     tex = "character",
     #' the bibtex processor
-    bibtex = "character"
-  ),
-  methods = list(
+    bibtex = "character",
     #' initializer
     #' @param ext a list or a vector of extensions that this interpreter can run
     #' @param register whether toautomatically add to the interpreter manager
@@ -79,10 +78,10 @@ texCompiler <- setRefClass(
                           latex = "pdflatex -interaction=nonstopmode",
                           tex="pdftex -interaction=nonstopmode",
                           bibtex="bibtex") {
-      callSuper(pattern=pattern, register=register)
-      latex <<- latex
-      tex <<- tex
-      bibtex <<- bibtex
+      super$initialize(pattern=pattern, register=register)
+      self$latex <- latex
+      self$tex <- tex
+      self$bibtex <- bibtex
     },
     #' the method for making the target from a vector of dependences
     #' @param script the script to run
@@ -102,7 +101,7 @@ texCompiler <- setRefClass(
       base <- basename(script)
       parts <- strsplit(base, "\\.")[[1]]
       base <- paste(parts[1:(length(parts)-1)], collapse=".")
-      run <- if (h$isLatex()) latex else tex
+      run <- if (h$isLatex()) self$latex else self$tex
       run.tex <- Interpreter(pattern=basename(script), command=run)
       exec(run.tex)
       aux <- texHandler(file.path(wd.tex, paste(base, "aux", sep=".")))
@@ -114,7 +113,7 @@ texCompiler <- setRefClass(
             bib=file.path(wd.tex, paste(bib, "bib", sep="."))
           if (!file.exists(bib))
             stop("Bibtex database ", bib, " does not exit.")
-          run.bib <- Interpreter(pattern=bib, command=bibtex)
+          run.bib <- Interpreter(pattern=bib, command=self$bibtex)
           exec(run.bib)
         }
         exec(run.tex)
@@ -124,7 +123,7 @@ texCompiler <- setRefClass(
   )
 )
 
-texCompiler()
+texCompiler$new()
 
 #' checks if a path is an absolute path
 #' @param path the path to check
@@ -134,10 +133,11 @@ isAbsolutePath <- function(path) {
   grepl(pattern, path)
 }
 
-texScanner <- setRefClass(
+#' this class defines a TeX/LaTeX file scanner for automatic dependences
+texScanner <- R6::R6Class(
   "texScanner",
-  contains = c("Scanner"),
-  methods = list(
+  inherit = Scanner,
+  public = list(
     #' scan a file for dependences
     #' @param file the file to scan
     #' @return a vector of dependences, or c() if none
@@ -166,9 +166,9 @@ texScanner <- setRefClass(
     },
     #' initializer
     initialize = function() {
-      callSuper(pattern=tex.ext)
+      super$initialize(pattern=tex.ext)
     }
   )
 )
 
-texScanner()
+texScanner$new()

@@ -1,4 +1,5 @@
 #' the Maker class is responsible for making a file.
+#' @include file.handler.R
 Maker <- setRefClass(
   "Maker",
   fields = c(
@@ -49,7 +50,7 @@ Maker <- setRefClass(
       if (is.null(rule) && file.exists(file)) {
         scanner <- scanners$get(file)
         if (!is.null(scanner)) {
-          rule <- makeRule(target=(file), recipe=TRUE, env=environment())
+          rule <- MakeRule$new(target=file, recipe=NULL)
         }
       }
       # make
@@ -74,8 +75,8 @@ Maker <- setRefClass(
     #' @param rule the rule to add
     #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
     add.rule = function(rule, replace=FALSE) {
-      if (!is(rule, "makeRule"))
-        stop("A rule must be an object of the class Rule.", call.=FALSE)
+      if (!is(rule, "MakeRule"))
+        stop("A rule must be an object of the class MakeRule.", call.=FALSE)
       name <- rule$pattern
       if (is.null(name) || length(name) == 0)
         stop("A rule must have a target", call.=FALSE)
@@ -96,12 +97,8 @@ Maker <- setRefClass(
 
 maker = Maker()
 
-#' return the list of rules
-getRules <- function () {
-  list(explicit=maker$explicit.rules, implicit=maker$implicit.rules)
-}
-
 #' clear the list of rules and load from Makefile.R
+#' @export
 resetRules <- function() {
   maker$dir <- file.path(getwd(), "")
   maker$clear()
@@ -142,6 +139,7 @@ tracker <- MakeTracker()
 #' @param file the file to make
 #' @param force force to build the file regardless if it is stale or not.
 #' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
+#' @export
 make <- function(file="all", force=FALSE) {
   if (length(maker$dir) == 0) return (FALSE)
   tracker$track(file)

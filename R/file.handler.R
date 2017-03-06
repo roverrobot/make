@@ -1,15 +1,14 @@
 #' this class defines a general interface for handling a file
-FileHandler <- setRefClass(
+FileHandler <- R6::R6Class(
   "FileHandler",
-  fields = c(
+  public = c(
     # the list of file extensions that this handler can handle
-    pattern = "character"),
-  methods = list(
+    pattern = "",
     #' check if handler can handle the given file
     #' @param file the file to run
     #' @return logical, TRUE if it can run, FALSE if it cannot.
     canHandle = function(file) {
-      return(match.stem(pattern, file))
+      return(match.stem(self$pattern, file))
     }
   )
 )
@@ -43,10 +42,10 @@ Manager <- setRefClass(
 )
 
 #' scans for dependences of a file
-Scanner <- setRefClass(
+Scanner <- R6::R6Class(
   "Scanner",
-  contains = c("FileHandler"),
-  methods = list(
+  inherit = FileHandler,
+  public = list(
     #' scan a file for dependences
     #' @param file the file to scan
     #' @return a vector of dependences, or c() if none
@@ -55,10 +54,10 @@ Scanner <- setRefClass(
     },
     #' initializer
     initialize = function(pattern) {
-      callSuper(pattern=pattern)
-      scanners$add(.self)
+      self$pattern <- pattern
+      scanners$add(self)
     }
   )
 )
 
-scanners <- Manager(class="Scanner")
+scanners <- Manager$new(class="Scanner")

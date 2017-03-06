@@ -1,24 +1,23 @@
-# Recipe represents the recipe for a rule
-Recipe <- setRefClass(
+#' Recipe is the root class for all recipes for making a file
+Recipe <- R6::R6Class(
   "Recipe",
-  methods = list(
+  public = list(
+    #' run is the main function of a recipe for making a target file from a list of dependences
+    #' @param target the file to make
+    #' @param depend the list of dependences
+    #' @return this function has no return value. It should throw an error and stop if it fails to make the target.
     run = function(target, depend) {
     }
   )
 )
 
-setClassUnion("RecipeField", members=c("Recipe", "function", "logical"))
-setClassUnion("characterOrNULL", members=c("character", "NULL"))
-
 #' parse a target
 #' @param target an expression
 #' @return a target and its dependences
 parseTarget <- function(target, env) {
+  # vlist evaluates a list of variables in v, 
   vlist <- function(v) {
-    res = c()
-    for (i in v)
-      res <- c(res, eval(as.name(i), envir=env))
-    res
+    sapply(v, function(var) {eval(as.name(var), envir=env)})
   }
   l <- as.list(target)
   switch (
@@ -40,55 +39,50 @@ parseTarget <- function(target, env) {
   )
 }
 
-# makeRule implements a rule that is similar to a Makefile rule
-makeRule <- setRefClass(
-  "makeRule",
-  contains = c("FileHandler"),
-  fields = c(
+#' makeRule implements a rule that is similar to a Makefile rule
+#' @include file.handler.R
+MakeRule <- R6::R6Class(
+  "MakeRule",
+  inherit = FileHandler,
+  public = list(
     #' a vector of dependent files
-    depend = "list",
+    depend = list(),
     #' the recipe to make the target
-    recipe = "RecipeField",
+    recipe = NULL,
     #' the time stamp for last scan, -Inf if not scanned
-    timestamp = "numeric"
-  ),
-  methods = list(
+    timestamp = -Inf,
     #' initializer,
-    #' @param target a formula specifying target ~ dependences, the dependences are separated by +, or a target name (string), in which case the dependences are specified by depend.
-    #' @param depend the dependences, if target is formula, then depend is appended to the end of the dependences specified in the formula
-    #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or TRUE (the rule always success), or FALSE (do not know how to make the target). Note that TRUE/FALSE are returned after successfully checked dependences.
+    #' @param target a pattern or a file name
+    #' @param depend the dependences, 
+    #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (the rule makes nothing and always success, after successfully checked dependences).
     #' @param interpreter f using the first dependent file as a script, this is the interpreter to run the script.
     #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
     initialize = function(target,
-                          recipe=scriptRecipe(interpreter=interpreter),
+                          recipe=scriptRecipe$new(interpreter=interpreter),
                           depend=list(),
                           interpreter = NULL,
-                          replace=FALSE,
-                          env = environment()) {
-      parsed <- parseTarget(substitute(target), env)
-      if (is.list(parsed)) {
-        target <- parsed[[1]]
-        depend <<- as.list(c(parsed[[2]], depend))
-      } else {
-        target <- parsed
-        depend <<- as.list(depend)
-      }
+                          replace=FALSE) {
+      self$depend <- as.list(depend)
+      # error if no target is specified.
       if (length(target) == 0) {
         stop("Target ", 
              as.character(substitute(target)), 
              ": a target must be specified.", call.=FALSE)
       }
-      
-      callSuper(pattern = target[[1]])
-      recipe <<- recipe
-      timestamp <<- -Inf
-      maker$add.rule(.self, replace)
+
+      if (!is(recipe, "Recipe") && !is.function(recipe) && !is.null(recipe))
+        stop("Invalid recipe.", call. = FALSE)
+      # for each target, set up a rule
+      self$pattern = target[[1]]
+      self$recipe <- recipe
+      self$timestamp <- -Inf
+      maker$add.rule(self, replace)
 
       # set up a rule for each target specified
       for (targ in target[-1]) {
-        makeRule(target=(targ), recipe=recipe, depend=depend, 
+        MakeRule$new(targ, recipe=self$recipe, depend=self$depend, 
                  interpreter = interpreter,
-                 replace, env=environment())
+                 replace)
       }
     }
     ,
@@ -96,13 +90,13 @@ makeRule <- setRefClass(
     #' @param file the file to check
     #' @return a logical indicating whether the file can be handled. In the case that it can be handled, it contains an attributed named "rule". If the rule is implicit, the returned rule is an explicit rule that can handle the file. If the rule is explicit, the returned rule is itself.
     canHandle = function(file) {
-      result = callSuper(file)
+      result = super$canHandle(file)
       if (result) {
         stem <- attr(result, "stem")
         if (is.null(stem)) {
-          attr(result, "rule") <- .self
+          attr(result, "rule") <- self
         } else {
-          deps <- if (is.null(stem)) depend else sub("%", stem, depend)
+          deps <- if (is.null(stem)) self$depend else sub("%", stem, self$depend)
           # checks for missing dependences
           for (dep in deps) {
             if (file.exists(dep)) next
@@ -114,11 +108,10 @@ makeRule <- setRefClass(
             if (!result && is.null(dep.mtime)) 
               return(FALSE)
           }
-          attr(result, "rule") <- makeRule(target = (file),
-                                           recipe=recipe,
+          attr(result, "rule") <- MakeRule$new(target = file,
+                                           recipe=self$recipe,
                                            depend = deps,
-                                           interpreter = interpreter,
-                                           env = environment(),
+                                           interpreter = self$interpreter,
                                            replace = TRUE)
         }
       }
@@ -131,21 +124,21 @@ makeRule <- setRefClass(
     #' @return logical. TRUE if successful, and FALSE if do not know how to make it. If the make fails, the function stops with an error.
     make = function(file, force = FALSE) {
       # implicit rules cannot make a file
-      if (isImplicit())
-        stop("Needs an explicit rule to make a file")
+      if (self$isImplicit())
+        stop("Rule ", self$patterm, " is not an explicit rule.", call.=FALSE)
       # get the timestamp of file
       mtime <- file.mtime(file)
       mtime <- if (is.na(mtime)) Inf else as.numeric(mtime)
-      if (timestamp < mtime) {
-        timestamp <<- if (is.infinite(mtime)) -Inf else mtime
-        scan()
+      if (self$timestamp < mtime) {
+        self$timestamp <- if (is.infinite(mtime)) -Inf else mtime
+        self$scan()
       }
       # if force or file does not exist, always build.
       mtime <- -Inf
       making <- attr(file, "making")
       if (is.null(making)) making <- c(file)
       # skip staled automatic dependence
-      for (dep in depend) {
+      for (dep in self$depend) {
         attr(dep, "making") <- making
         result <- maker$make(dep, silent = TRUE)
         dep.mtime <- attr(result, "timestamp")
@@ -155,81 +148,107 @@ makeRule <- setRefClass(
         # if dep.time is NA but make(dep) succeeded, ignore it
         mtime = max(mtime, dep.mtime, na.rm = TRUE)
       }
-      if (!is.infinite(timestamp) && timestamp >= mtime) {
+      if (!is.infinite(self$timestamp) && self$timestamp >= mtime) {
         result <- TRUE
-      } else if (is.logical(recipe)) {
-        result <- recipe
-        timestamp <<- mtime
+      } else if (is.null(self$recipe)) {
+        result <- TRUE
+        self$timestamp <- mtime
       } else {
         tryCatch( {
           result <- NULL
-          if (is.function(recipe)) {
-            recipe(file, depend)
-          } else recipe$run(file, depend)
+          if (is.function(self$recipe)) {
+            self$recipe(file, self$depend)
+          } else self$recipe$run(file, self$depend)
           result <- TRUE},
           finally = if (is.null(result) && file.exists(file)) 
             file.remove(file)
         )
-        timestamp <<- as.numeric(Sys.time())
+        self$timestamp <- as.numeric(Sys.time())
       }
-      if (!is.infinite(timestamp))
-        attr(result, "timestamp") <- timestamp
+      if (!is.infinite(self$timestamp))
+        attr(result, "timestamp") <- self$timestamp
       result
     }
     ,
     #' scan for dependences
     scan = function() {
-      if (isImplicit())
+      if (self$isImplicit())
         stop("Cannot scan an implicit target for depenences")
       # remove the stale dependences
-      deps <- list()
-      for (dep in depend) {
-        dep.time <- attr(dep, "timestamp")
-        if (is.null(dep.time)) deps <- c(deps, dep)
-      }
-      depend <<- deps
+      deps <- sapply(self$depend, function(dep) {
+        if (is.null(attr(dep, "timestamp"))) dep else NA})
+      self$depend <<- as.list(deps[which(!is.na(deps))])
       # if file does exists, do not scan
-      if (is.infinite(timestamp)) return()
+      if (is.infinite(self$timestamp)) return()
       # scan
-      scanner <- scanners$get(pattern)
+      scanner <- scanners$get(self$pattern)
       if (is.null(scanner)) return()
-      addDependences(scanner$scan(pattern))
+      self$addDependences(scanner$scan(pattern))
     }
     ,
     #' add dependences
     #' @param deps the dependences
     #' @param timestamp the timestamp to be added to the deps
     addDependences = function(deps) {
-      for (dep in deps)
-        if (!(dep %in% depend)) {
-          depend <<- c(depend, dep)
-          attr(depend[[length(depend)]], "timestamp") <<- timestamp
-        }
+      deps <- deps[which(!(deps %in% self$depend))]
+      for (dep in deps) {
+        attr(dep, "timestamp") <- self$timestamp
+        depend <- c(depend, dep)
+      }
     }
     ,
     #' whether the rule is implicit or not
     isImplicit = function() {
-      grepl("%", pattern)
+      grepl("%", self$pattern)
     }
     ,
     #' pretty print a makeRule object
     show = function() {
-      cat(pattern, "~")
-      for (dep in depend) 
-        cat("", dep)
-      cat("\n")
-      cat("recipe = ")
-      if (is.logical(recipe)) {
-        cat(recipe, "\n")
+      cat(self$pattern, "~")
+      if (length(self$depend) > 0) {
+        cat(self$depend[[1]])
+        for (dep in self$depend[-1]) 
+          cat("+", dep)
+      }
+      cat("\nrecipe = ")
+      if (is.null(recipe)) {
+        cat("\n")
       } else methods::show(recipe)
     }
   )
 )
 
-#' match file to patterns, which can contain a stem, e.g., dir/%.c
+#' create a make rule
+#' @param target a formula specifying target ~ dependences, the dependences are separated by +, or a target name (string), in which case the dependences are specified by depend.
+#' @param depend the dependences, if target is formula, then depend is appended to the end of the dependences specified in the formula
+#' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (the rule makes nothing and always success, after successfully checked dependences).
+#' @param interpreter f using the first dependent file as a script, this is the interpreter to run the script.
+#' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
+#' @return a MakeRule R6 object
+#' @export
+makeRule <- function(target,
+                     recipe=scriptRecipe$new(interpreter=interpreter),
+                     depend=list(),
+                     interpreter = NULL,
+                     replace=FALSE,
+                     env = parent.frame()) {
+  # parse the target
+  parsed <- parseTarget(substitute(target), env)
+  
+  if (is.list(parsed)) {
+    target <- parsed[[1]]
+    depend <- as.list(c(parsed[[2]], depend))
+  } else {
+    target <- parsed
+    depend <- as.list(depend)
+  }
+  MakeRule$new(target, recipe, depend, interpreter, replace)
+}
+
+#' match file to patterns, which can contain a stem, e.g., dir/\%.c
 #' @param pattern the pattern (or a list of vector of them) to match to
 #' @param file the file name
-#' @return logical indicating if file matches pattern, optionally with an attribute named "stem", returning the part of file matching the %, if the matching pattern contains a %.
+#' @return logical indicating if file matches pattern, optionally with an attribute named "stem", returning the part of file matching the \%, if the matching pattern contains a \%.
 match.stem = function(pattern, file) {
   # if pattern is a vector (or a list), match to each
   if (length(pattern) > 1) {

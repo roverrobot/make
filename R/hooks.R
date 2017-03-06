@@ -1,97 +1,100 @@
 # hooks.R contains all the hooks to intercept the file opening for read
 
-# Hook class intercept one call in base
-# base classes must implement a hook method
-setClassUnion("functionOrNULL",members=c("function", "NULL"))
-Hook <- setRefClass(
+#' Hook class intercept one call in base
+#' subclasses must implement a hook method
+Hook <- R6::R6Class(
   "Hook",
-  fields = c(
-    package = "character",
-    fun = "character",
-    saved = "functionOrNULL"
-  )
-  ,
-  methods = list(
-    set = function(overwrite = FALSE) {
-      if (is.null(fun) || is.null(hook)) {
-        warning("the hook is not initialized. The hook is skipped.")
-        return()
-      }
-      if (!is.null(saved) && !overwrite) {
-        warning("the function ", fun, " in package ", package, "has been saved. The hook is skipped.")
-        return()
-      }
-      pkg <- getNamespace(package)
-      saved <<- pkg[[fun]]
-      unlockBinding(fun, pkg)
-      pkg[[fun]] <- .self$hook
-      lockBinding(fun, pkg)
+  public = list(
+    #' the package to hook into
+    package = NULL,
+    #' the function that replaces
+    fun = NULL,
+    #' the saved version of the function
+    saved = NULL,
+    #' set the function hook
+    set = function() {
+      if (is.null(self$fun) || is.null(self$hook))
+        stop("the hook is not initialized.", call.=FALSE)
+      if (!is.null(self$saved))
+        stop("the function ", self$fun, " in package ", self$package, 
+             "has been saved.", call.=FALSE)
+      pkg <- getNamespace(self$package)
+      self$saved <- pkg[[self$fun]]
+      unlockBinding(self$fun, pkg)
+      pkg[[self$fun]] <- self$hook
+      lockBinding(self$fun, pkg)
     }
     ,
+    #' restores the functions intercepted by the hooks.
     restore = function() {
-      if (is.null(saved)) {
-        warning("the hook is not initialized. Restoration is skipped.")
-        return()
-      }
-      pkg <- getNamespace(package)
-      unlockBinding(fun, pkg)
-      pkg[[fun]] <- saved
-      lockBinding(fun, pkg)
-      saved <<- NULL
+      if (is.null(self$saved)) return()
+      pkg <- getNamespace(self$package)
+      unlockBinding(self$fun, pkg)
+      pkg[[self$fun]] <- self$saved
+      lockBinding(self$fun, pkg)
+      self$saved <- NULL
     }
     ,
+    #' the initializaer
+    #' @param fun the function to intercept
+    #' @param package the package were the function is defined.
     initialize = function(fun, package="base") {
-      package <<- package
-      fun <<- fun
-      saved <<- NULL
+      self$package <- package
+      self$fun <- fun
+      self$saved <- NULL
     }
   )
 )
 
-fileHook <- setRefClass(
+#' defines a hook for base::file like connection creation functions
+fileHook <- R6::R6Class(
   "fileHook",
-  contains = c("Hook"),
-  methods = c(
+  inherit = Hook,
+  public = list(
     hook=function(description="", open="", ...) {
-      con = saved(description, "", ...)
+      con = self$saved(description, "", ...)
       if (open != "") open(con, open)
       con
     }
   )
 )
 
-openHook <- setRefClass(
+#' defines a hook for base::open
+openHook <- R6::R6Class(
   "FileHook",
-  contains = c("Hook"),
-  methods = c(
+  inherit = Hook,
+  public = list(
     hook=function(con, open = "", ...) {
       info = summary.connection(con)
       if (is.file(info) && grepl("r", open))
         make(info$description)
-      saved(con, open, ...)
+      self$saved(con, open, ...)
     }
     ,
     initialize= function() {
-      callSuper("open")
+      super$initialize("open")
     }
   )
 )
 
-readCharHook <- setRefClass(
+#' defines a hook for base::readChar
+readCharHook <- R6::R6Class(
   "readCharHook",
-  contains = c("Hook"),
-  methods = list(
+  inherit = Hook,
+  public = list(
+    #' the hook for base::readChar
     hook = function(con, ...) {
       if (!is.character(con)) {
         info = summary.connection(con)
         file = info$description
       } else file = con
       make(file)
-      saved(con, ...)
+      self$saved(con, ...)
     }
     ,
+    #' initializer
     initialize = function() {
-      callSuper("readChar")
+      super$initialize("readChar")
     }
   )
 )
@@ -103,72 +106,80 @@ is.file = function(con) {
   con$class %in% c("file", "gzfile", "bzfile", "xzfile", "unz")
 }
 
-BaseConnection <- setRefClass("BaseConnection",
-  fields = c(hooks="list"),
-  methods = list(
+#' connections from the base package
+BaseConnection <- R6::R6Class(
+  "BaseConnection",
+  public = list(
+    #' the list of hooks that is related to connections
+    hooks = list(),
+    #' set all the hooks
+    #' @param name seet a specific hook given by name, or all the hooks if name=="".
     set = function(name = "") {
       if (name == "") {
-        for (hook in hooks)
+        for (hook in self$hooks)
           hook$set()
       } else {
-        hook = hooks[[name]]
+        hook = self$hooks[[name]]
         if (is.null(hook)) {
           warning("The hook ", name, "does not exist. Skip setting it.")
         } else hook$set()
       }
     }
     ,
+    #' restore all the hooks
+    #' @param name the specific hook with name, or all the hooks if name==""
     restore = function(name = "") {
       if (name == "") {
-        for (hook in hooks)
+        for (hook in self$hooks)
           hook$restore()
       } else {
-        hook = hooks[[name]]
+        hook = self$hooks[[name]]
         if (is.null(hook)) {
           warning("The hook ", name, "does not exist. Skip setting it.")
         } else hook$restore()
       }
     }
     ,
+    #' add a hook
     add = function(hook) {
-      if (hook$package == "" || hook$fun == "" || is.null(hook$hook)) {
-        warning("the hook is uninitialized. Skip it.")
-        return()
-      }
+      if (hook$package == "" || hook$fun == "" || is.null(hook$hook))
+        stop("the hook is uninitialized.", call.=FALSE)
       name = paste(hook$package, hook$fun, sep=":")
-      hooks[[name]] <<- hook
+      self$hooks[[name]] <<- hook
     }
     ,
+    #' the initializer
     initialize = function() {
-      add(fileHook(fun="file"))
-      add(openHook())
-      add(fileHook(fun="gzfile"))
-      add(fileHook(fun="bzfile"))
-      add(fileHook(fun="xzfile"))
-      add(fileHook(fun="unz"))
-      add(readCharHook())
+      self$add(fileHook$new(fun="file"))
+      self$add(openHook$new())
+      self$add(fileHook$new(fun="gzfile"))
+      self$add(fileHook$new(fun="bzfile"))
+      self$add(fileHook$new(fun="xzfile"))
+      self$add(fileHook$new(fun="unz"))
+      self$add(readCharHook$new())
     }
   )
 )
 
-connection.base <- BaseConnection()
+#' the hooks related to connections from base 
+connection.base <- BaseConnection$new()
 
-#' the load hook
+# the load hook
 .onLoad <- function(libname, pkgname) {
   connection.base$set()
   options(`make:interpreter` = "/bin/sh --")
 }
 
-#' the unload hook
+# the unload hook
 .onUnload <- function(libpath) {
   connection.base$restore()
 }
 
-#' the detach hook
+# the detach hook
 .onDetach <- function(libpath) {
 }
 
-#' the attach hook
+# the attach hook
 .onAttach <- function(libpath, pkgname) {
   resetRules()
 }

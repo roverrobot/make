@@ -9,10 +9,12 @@ Description: This package provides a make utility similar to the venerable make,
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
-Collate:
-	file.handler.R
-  make.R
-	make.rule.R
-	script.recipe.R
-	tex.handler.R
-  hooks.R
+Imports: R6
+Collate: 
+    'file.handler.R'
+    'hooks.R'
+    'make.R'
+    'make.rule.R'
+    'script.recipe.R'
+    'tex.handler.R'
+RoxygenNote: 6.0.1

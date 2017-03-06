@@ -1,18 +1,17 @@
 #' this class defines an interpreter to run a type of script (distinguished by extensions)
-Interpreter <- setRefClass(
+Interpreter <- R6::R6Class(
   "Interpreter",
-  contains = c("FileHandler"),
-  fields = c(
+  inherit = FileHandler,
+  public = list(
     #' the command to runa script
-    command = "character"),
-  methods = list(
+    command = "",
     #' the method for making the target from a vector of dependences
     #' @param script the script to run
     #' @param target the target file
     #' @param depend the vector of dependences, the first file in depend is the script name
     run = function(script, target, depend) {
       # if the interpreter is not specified, check if it is specified in the script first
-      com <- command
+      com <- self$command
       if (nchar(com) == 0) {
         opt <- getOption("make:interpreter")
         if (is.character(opt)) com <- opt
@@ -30,34 +29,32 @@ Interpreter <- setRefClass(
     #' @param command the command to run a given script
     #' @param register whether toautomatically add to the interpreter manager
     initialize = function(pattern, command = "", register=TRUE) {
-      callSuper(pattern=pattern)
-      command <<-command
-      if (register) interpreters$add(.self)
+      self$pattern <- pattern
+      self$command <- command
+      if (register) interpreters$add(self)
     }
   )
 )
 
-interpreters = Manager(class="Interpreter")
-Interpreter("%", "") # the default one
-Interpreter("%.py", "python")
-Interpreter("%.pl", "perl")
+interpreters <- Manager$new(class="Interpreter")
+Interpreter$new("%", "") # the default one
+Interpreter$new("%.py", "python")
+Interpreter$new("%.pl", "perl")
 if (system("which matlab") == 0) {
-  Interpreter("%.m", "matlab")
+  Interpreter$new("%.m", "matlab")
 } else if (system("which octave") == 0) {
-  Interpreter("%.m", "octave")
+  Interpreter$new("%.m", "octave")
 }
 
-InterpreterOrNULL <- setClassUnion("InterpreterOrNULL", members=c("Interpreter", "NULL"))
 #' this is a Recipe that makes a target file by running a script,
 #' interpreted by an interpreter.
-scriptRecipe <- setRefClass(
+#' @include make.rule.R
+scriptRecipe <- R6::R6Class(
   "scriptRecipe",
-  contains = c("Recipe"),
-  fields = c(
+  inherit = Recipe,
+  public = list(
     #' the interpreter used to run the script.
-    interpreter = "InterpreterOrNULL"
-  ),
-  methods = list(
+    interpreter = NULL,
     #' the method for making the target from a vector of dependences
     #' @param target the target file
     #' @param depend the vector of dependences, the first file in depend is the script name
@@ -72,7 +69,7 @@ scriptRecipe <- setRefClass(
       if (!file.exists(script))
         stop("The recipe script ", script, " does not exist.", call.=FALSE)
       # check for interpreter
-      run <- interpreter
+      run <- self$interpreter
       # if the interpreter is not specified, check if it is specified in the script first
       if (is.null(run)) {
         first.line = readLines(script, n=1)
@@ -94,25 +91,30 @@ scriptRecipe <- setRefClass(
     #' pretty print a scriptRecipe object
     show = function() {
       cat("scriptRecipe")
-      if (!is.null(interpreter)) {
+      if (!is.null(self$interpreter)) {
         cat(" interpretered by: ")
         show(interpreter)
       }
       cat("\n")
     }
+    ,
+    #' initializer
+    initialize = function(interpreter = NULL) {
+      self$interpreter <- interpreter
+    }
   )
 )
 
 #' the interpreter for R scripts
-RInterpreter <- setRefClass(
+RInterpreter <- R6::R6Class(
   "RInterpreter",
-  contains = c("Interpreter"),
-  methods = list(
+  inherit = Interpreter,
+  public = list(
     #' initializer
     #' @param pattern a list or a vector of patterns that this interpreter can run
     #' @param register whether toautomatically add to the interpreter manager
     initialize = function(pattern = c("%.R", "%.r"), register = TRUE) {
-      callSuper(pattern = pattern, command = "", register = register)
+      super$initialize(pattern = pattern, command = "", register = register)
     },
     #' the method for making the target from a vector of dependences
     #' @param script the script to run
@@ -137,7 +139,7 @@ RInterpreter <- setRefClass(
       if (length(deps) > 0) {
         rule <- maker$explicit.rules[[script]]
         if (is.null(rule)) {
-          rule <- makeRule((script), recipe=TRUE, env=environment())
+          rule <- MakeRule(script, recipe=NULL)
         }
         rule$addDependences(deps)
       }
@@ -145,4 +147,4 @@ RInterpreter <- setRefClass(
   )
 )
 
-RInterpreter()
+RInterpreter$new()
