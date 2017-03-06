@@ -2,16 +2,14 @@
 Interpreter <- R6::R6Class(
   "Interpreter",
   inherit = FileHandler,
-  public = list(
+  private = list(
     #' the command to runa script
-    command = "",
-    #' the method for making the target from a vector of dependences
-    #' @param script the script to run
-    #' @param target the target file
-    #' @param depend the vector of dependences, the first file in depend is the script name
-    run = function(script, target, depend) {
-      # if the interpreter is not specified, check if it is specified in the script first
-      com <- self$command
+    command = ""
+  ),
+  active = list(
+    #' the command line
+    commandLine = function() {
+      com <- private$command
       if (nchar(com) == 0) {
         opt <- getOption("make:interpreter")
         if (is.character(opt)) com <- opt
@@ -20,7 +18,17 @@ Interpreter <- R6::R6Class(
       if (nchar(com) == 0) {
         com <- "/bin/sh --"
       }
-      com <- paste(c(com, script, target, depend), collapse = " ")
+      com
+    }
+  ),
+  public = list(
+    #' the method for making the target from a vector of dependences
+    #' @param script the script to run
+    #' @param target the target file
+    #' @param depend the vector of dependences, the first file in depend is the script name
+    run = function(script, target, depend) {
+      # if the interpreter is not specified, check if it is specified in the script first
+      com <- paste(c(self$commandLine, script, target, depend), collapse = " ")
       if (system(com) != 0)
         stop("Failed to run: ", com, call.=FALSE)
     },
@@ -30,7 +38,7 @@ Interpreter <- R6::R6Class(
     #' @param register whether toautomatically add to the interpreter manager
     initialize = function(pattern, command = "", register=TRUE) {
       self$pattern <- pattern
-      self$command <- command
+      private$command <- command
       if (register) interpreters$add(self)
     }
   )
@@ -52,9 +60,11 @@ if (system("which matlab") == 0) {
 scriptRecipe <- R6::R6Class(
   "scriptRecipe",
   inherit = Recipe,
-  public = list(
+  private = list(
     #' the interpreter used to run the script.
-    interpreter = NULL,
+    interpreter = NULL
+  ),
+  public = list(
     #' the method for making the target from a vector of dependences
     #' @param target the target file
     #' @param depend the vector of dependences, the first file in depend is the script name
@@ -69,7 +79,7 @@ scriptRecipe <- R6::R6Class(
       if (!file.exists(script))
         stop("The recipe script ", script, " does not exist.", call.=FALSE)
       # check for interpreter
-      run <- self$interpreter
+      run <- private$interpreter
       # if the interpreter is not specified, check if it is specified in the script first
       if (is.null(run)) {
         first.line = readLines(script, n=1)
@@ -91,16 +101,16 @@ scriptRecipe <- R6::R6Class(
     #' pretty print a scriptRecipe object
     show = function() {
       cat("scriptRecipe")
-      if (!is.null(self$interpreter)) {
+      if (!is.null(private$interpreter)) {
         cat(" interpretered by: ")
-        show(interpreter)
+        show(private$interpreter)
       }
       cat("\n")
     }
     ,
     #' initializer
     initialize = function(interpreter = NULL) {
-      self$interpreter <- interpreter
+      private$interpreter <- interpreter
     }
   )
 )
