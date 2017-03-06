@@ -59,15 +59,22 @@ tex.ext = c("%.tex", "%.ltx")
 #' this Interpreter subclass compiles a tex file
 #' @include script.recipe.R
 texCompiler <- R6::R6Class(
-  "texInterpreter",
+  "texCompiler",
   inherit = Interpreter,
-  public = list(
+  private = list(
     #' the latex compiler
-    latex = "character",
+    latex = NULL,
     #' the tex compiler
-    tex = "character",
+    tex = NULL,
     #' the bibtex processor
-    bibtex = "character",
+    bibtex = NULL
+  ),
+  active = list(
+    latexCommand = function() { private$latex },
+    texCommand = function() { private$tex },
+    bibexCommand = function() { private$bibtex }
+  ),
+  public = list(
     #' initializer
     #' @param ext a list or a vector of extensions that this interpreter can run
     #' @param register whether toautomatically add to the interpreter manager
@@ -79,9 +86,9 @@ texCompiler <- R6::R6Class(
                           tex="pdftex -interaction=nonstopmode",
                           bibtex="bibtex") {
       super$initialize(pattern=pattern, register=register)
-      self$latex <- latex
-      self$tex <- tex
-      self$bibtex <- bibtex
+      private$latex <- latex
+      private$tex <- tex
+      private$bibtex <- bibtex
     },
     #' the method for making the target from a vector of dependences
     #' @param script the script to run
@@ -101,10 +108,10 @@ texCompiler <- R6::R6Class(
       base <- basename(script)
       parts <- strsplit(base, "\\.")[[1]]
       base <- paste(parts[1:(length(parts)-1)], collapse=".")
-      run <- if (h$isLatex()) self$latex else self$tex
-      run.tex <- Interpreter(pattern=basename(script), command=run)
+      run <- if (h$isLatex()) private$latex else private$tex
+      run.tex <- Interpreter$new(pattern=basename(script), command=run)
       exec(run.tex)
-      aux <- texHandler(file.path(wd.tex, paste(base, "aux", sep=".")))
+      aux <- texHandler$new(file.path(wd.tex, paste(base, "aux", sep=".")))
       bibs = aux$matchCommand("bibdata")
       cite = aux$matchCommand("citation")
       if (length(bibs) > 0 && length(cite) > 0) {
@@ -113,7 +120,7 @@ texCompiler <- R6::R6Class(
             bib=file.path(wd.tex, paste(bib, "bib", sep="."))
           if (!file.exists(bib))
             stop("Bibtex database ", bib, " does not exit.")
-          run.bib <- Interpreter(pattern=bib, command=self$bibtex)
+          run.bib <- Interpreter$new(pattern=bib, command=private$bibtex)
           exec(run.bib)
         }
         exec(run.tex)
@@ -148,7 +155,6 @@ texScanner <- R6::R6Class(
           if (length(parts) > 1) str else paste(str, suffix, sep=".")
         })
       }
-
       tex <- texHandler(file)
       figures <- tex$matchCommand("includegraphics")
       figures <- add.suffix(figures, "pdf")

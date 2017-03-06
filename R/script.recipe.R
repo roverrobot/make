@@ -87,7 +87,7 @@ scriptRecipe <- R6::R6Class(
         if (match > 0) {
           start <- attr(match, "capture.start")["handler"]
           length <- attr(match, "capture.length")["handler"]
-          run <- Interpreter("", substr(script[[1]], start, start + length - 1), FALSE)
+          run <- Interpreter$new("", substr(script[[1]], start, start + length - 1), FALSE)
         }
       }
       # if still not specified, check for the list of known interpreters
@@ -99,11 +99,11 @@ scriptRecipe <- R6::R6Class(
     }
     ,
     #' pretty print a scriptRecipe object
-    show = function() {
+    print = function() {
       cat("scriptRecipe")
       if (!is.null(private$interpreter)) {
         cat(" interpretered by: ")
-        show(private$interpreter)
+        print(private$interpreter)
       }
       cat("\n")
     }

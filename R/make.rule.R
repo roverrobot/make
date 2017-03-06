@@ -183,7 +183,7 @@ MakeRule <- R6::R6Class(
       # scan
       scanner <- scanners$get(self$pattern)
       if (is.null(scanner)) return()
-      self$addDependences(scanner$scan(pattern))
+      self$addDependences(scanner$scan(self$pattern))
     }
     ,
     #' add dependences
@@ -193,7 +193,7 @@ MakeRule <- R6::R6Class(
       deps <- deps[which(!(deps %in% self$depend))]
       for (dep in deps) {
         attr(dep, "timestamp") <- self$timestamp
-        depend <- c(depend, dep)
+        self$depend <- c(self$depend, dep)
       }
     }
     ,
@@ -203,17 +203,17 @@ MakeRule <- R6::R6Class(
     }
     ,
     #' pretty print a makeRule object
-    show = function() {
+    print = function() {
       cat(self$pattern, "~")
       if (length(self$depend) > 0) {
-        cat(self$depend[[1]])
+        cat("", self$depend[[1]])
         for (dep in self$depend[-1]) 
-          cat("+", dep)
+          cat(" +", dep)
       }
       cat("\nrecipe = ")
-      if (is.null(recipe)) {
+      if (is.null(self$recipe)) {
         cat("\n")
-      } else methods::show(recipe)
+      } else print(self$recipe)
     }
   )
 )
