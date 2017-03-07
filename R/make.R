@@ -7,7 +7,9 @@ Maker <- R6::R6Class(
     #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
     explicit.rules = list(),
     #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
-    implicit.rules = list(),
+    implicit.rules = list()
+  ),
+  public = list(
     #' returns a rule for handling a file
     #' @param file the file to make
     #' @return a MakeRule object, or NULL if do not know how to make it.
@@ -33,8 +35,7 @@ Maker <- R6::R6Class(
       }
       rule
     }
-  ),
-  public = list(
+    ,
     #' check if the file can be handled by this maker
     #' 
     #' it checks if the file is in the dir (self$pattern)
@@ -68,7 +69,7 @@ Maker <- R6::R6Class(
       }
       attr(file, "making") <- c(making, file)
       # only make files in the dir
-      rule <- if (self$canHandle(file)) private$ruleForFile(file) else NULL
+      rule <- if (self$canHandle(file)) self$ruleForFile(file) else NULL
       # make
       if (!is.null(rule)) {
         result = NULL

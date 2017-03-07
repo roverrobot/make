@@ -147,7 +147,7 @@ RInterpreter <- R6::R6Class(
       tryCatch(source(con, local=TRUE), finally=close(con))
       deps <- tracker$pop()
       if (length(deps) > 0) {
-        rule <- maker$explicit.rules[[script]]
+        rule <- maker$ruleForFile(script)
         if (is.null(rule)) {
           rule <- MakeRule$new(script, recipe=NULL)
         }

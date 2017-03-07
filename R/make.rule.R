@@ -147,7 +147,7 @@ MakeRule <- R6::R6Class(
         dep.mtime <- attr(result, "timestamp")
         # if dep does not exist and no rule matches to make it, then it is the wrong rule.
         if (!result && is.null(dep.mtime)) 
-          stop("missing dependence ", dep, call.=FALSE)
+          stop("cannot make the dependence ", dep, call.=FALSE)
         # if dep.time is NA but make(dep) succeeded, ignore it
         mtime = max(mtime, dep.mtime, na.rm = TRUE)
       }
@@ -217,6 +217,7 @@ MakeRule <- R6::R6Class(
       if (is.null(private$recipe)) {
         cat("\n")
       } else print(private$recipe)
+      cat("\n")
     }
   )
 )
