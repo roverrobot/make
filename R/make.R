@@ -180,8 +180,9 @@ tracker <- MakeTracker$new()
 #' @export
 make <- function(file="all", force=FALSE) {
   if (length(maker$pattern) == 0) return (FALSE)
-  tracker$track(file)
-  result <- maker$make(file)
+  if (maker$canHandle(file)) tracker$track(file)
+  result <- FALSE
+  try(result <- maker$make(file))
   attr(result, "timestamp") <- NULL
   result
 }
