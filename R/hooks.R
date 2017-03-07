@@ -21,6 +21,11 @@ Hook <- R6::R6Class(
     }
   ),
   public = list(
+    #' calls the saved function
+    #' @param ... parameters to be apssed to the original function
+    original = function( ... ) { 
+      private$saved(...) 
+    },
     #' set the function hook
     set = function() {
       if (!self$isSet)
@@ -161,6 +166,13 @@ BaseConnection <- R6::R6Class(
       if (!hook$isSet)
         stop("the hook is uninitialized.", call.=FALSE)
       private$hooks[[hook$f]] <- hook
+    }
+    ,
+    #' returns a specific saved function
+    #' @param fun the name of the function, preceeded by packagename::
+    original = function(fun, ...) {
+      hook <- private$hooks[[fun]]
+      if (is.null(hook)) NULL else hook$original(...)
     }
     ,
     #' the initializer

@@ -39,10 +39,9 @@ texHandler <- R6::R6Class(
     },
     # initializer
     initialize = function(script) {
-      file <- connection.base$hooks[["base:file"]]$saved
       private$script <- script
       if (!file.exists(script)) return(NULL)
-      con <- file(script, "r")
+      con <- connection.base$original("base::file", description=script, open="r")
       lines <- readLines(con)
       close(con)
       strip <- sapply(lines, function(line) {

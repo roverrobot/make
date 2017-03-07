@@ -142,14 +142,14 @@ RInterpreter <- R6::R6Class(
         env[[var]] <- NULL
         do.call(base::`<<-`, list(var, x))
       }
-      con <- connection.base$hooks[["base:file"]]$saved(script, "r")
+      con <- connection.base$original("base::file", description=script, open="r")
       tracker$push()
       tryCatch(source(con, local=TRUE), finally=close(con))
       deps <- tracker$pop()
       if (length(deps) > 0) {
         rule <- maker$explicit.rules[[script]]
         if (is.null(rule)) {
-          rule <- MakeRule(script, recipe=NULL)
+          rule <- MakeRule$new(script, recipe=NULL)
         }
         rule$addDependences(deps)
       }

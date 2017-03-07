@@ -34,10 +34,6 @@ Maker <- R6::R6Class(
       rule
     }
   ),
-  active = list(
-    #' returns the dir that this maker manages
-    dir = function() { self$pattern }
-  ),
   public = list(
     #' check if the file can be handled by this maker
     #' 
@@ -46,7 +42,7 @@ Maker <- R6::R6Class(
     canHandle = function(file) {
       # only make files in the dir
       abs <- normalizePath(file, mustWork = FALSE)
-      dir <- self$dir
+      dir <- self$pattern
       return (!isAbsolutePath(abs) || substr(abs, 1, nchar(dir)) == dir)
     }
     ,
@@ -79,7 +75,7 @@ Maker <- R6::R6Class(
       # make
       if (!is.null(rule)) {
         result = NULL
-        try(result <- rule$make(file, force))
+        result <- rule$make(file, force)
         if (is.null(result)) stop("failed to make ", file, call.=FALSE)
       } else {
         result <- FALSE
@@ -123,6 +119,9 @@ Maker <- R6::R6Class(
         stop("The directory ", dir, " does not exist.", call.=FALSE)
       self$pattern <- dir
       self$clear()
+      makefile <- file.path(dir, "Makefile.R")
+      if (file.exists(makefile))
+        try(source(makefile))
     }
     ,
     #' print the maker
@@ -143,9 +142,7 @@ maker = Maker$new(getwd())
 #' clear the list of rules and load from Makefile.R
 #' @export
 resetRules <- function() {
-  maker = Maker$new(getwd())
-  if (file.exists("Makefile.R"))
-    try(source("Makefile.R"))
+  maker$initialize(getwd())
 }
 
 #' tracks the files being automatically opened.
@@ -184,7 +181,7 @@ tracker <- MakeTracker$new()
 #' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
 #' @export
 make <- function(file="all", force=FALSE) {
-  if (length(maker$dir) == 0) return (FALSE)
+  if (length(maker$pattern) == 0) return (FALSE)
   tracker$track(file)
   result <- maker$make(file)
   attr(result, "timestamp") <- NULL
