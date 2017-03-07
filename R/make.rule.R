@@ -142,7 +142,8 @@ MakeRule <- R6::R6Class(
       # skip staled automatic dependence
       for (dep in private$depend) {
         attr(dep, "making") <- making
-        result <- maker$make(dep, silent = TRUE)
+        result <- FALSE
+        try(result <- maker$make(dep, silent = TRUE))
         dep.mtime <- attr(result, "timestamp")
         # if dep does not exist and no rule matches to make it, then it is the wrong rule.
         if (!result && is.null(dep.mtime)) 

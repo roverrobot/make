@@ -60,9 +60,6 @@ Maker <- R6::R6Class(
         }
         return(result)
       }
-      # only make files in the dir
-      if (!self$canHandle(file))
-        return (FALSE)
       # check for circular dependence
       making <- attr(file, "making")
       if (is.null(making)) making <- c()
@@ -70,8 +67,8 @@ Maker <- R6::R6Class(
         stop("circular dependences: ", making, " ", file, call.=FALSE)
       }
       attr(file, "making") <- c(making, file)
-      # search for an explicit rule for file
-      rule <- private$ruleForFile(file)
+      # only make files in the dir
+      rule <- if (self$canHandle(file)) private$ruleForFile(file) else NULL
       # make
       if (!is.null(rule)) {
         result = NULL
