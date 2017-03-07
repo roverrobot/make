@@ -35,7 +35,7 @@ texHandler <- R6::R6Class(
     #' check latex or plain tex
     #' @param file the tex file to check
     isLatex = function() {
-      !is.null(matchCommand("documentclass", first.command = TRUE))
+      !is.null(self$matchCommand("documentclass", first.command = TRUE))
     },
     # initializer
     initialize = function(script) {
