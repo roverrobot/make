@@ -6,7 +6,7 @@
 \title{this class processes a TeX/LaTeX file
 the tex file to process
 saves the content of the file
-matches a command in the form \textbackslash command[]\{\}}
+matches a command in the form \\command[]\{\}}
 \format{An object of class \code{R6ClassGenerator} of length 24.}
 \usage{
 texHandler
@@ -25,6 +25,6 @@ check latex or plain tex}
 this class processes a TeX/LaTeX file
 the tex file to process
 saves the content of the file
-matches a command in the form \textbackslash command[]\{\}
+matches a command in the form \\command[]\{\}
 }
 \keyword{datasets}

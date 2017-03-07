@@ -8,7 +8,7 @@ texHandler <- R6::R6Class(
     content = NULL
   ),
   public = list(
-    #' matches a command in the form \textbackslash command[]\{\}
+    #' matches a command in the form \\command[]\{\}
     #' @param command the tex command to search for
     #' @param first.command whether this command should be the first command
     #' @param to.space whether the parameter is up to the first space (in the absence of \{\})
