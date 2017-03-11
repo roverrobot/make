@@ -52,7 +52,7 @@ Maker <- R6::R6Class(
       if (!is.null(entry)) {
         # mark an extra parent and 
         if (length(parent) > 0) {
-          entry$parents = c(entry$parents, parent)
+          entry$parent = c(entry$parent, parent)
           makelist[[file]] <- entry
         }
         return(makelist)
