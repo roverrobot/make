@@ -143,16 +143,7 @@ RInterpreter <- R6::R6Class(
         do.call(base::`<<-`, list(var, x))
       }
       con <- connection.base$original("base::file", description=script, open="r")
-      tracker$push()
       tryCatch(source(con, local=TRUE), finally=close(con))
-      deps <- tracker$pop()
-      if (length(deps) > 0) {
-        rule <- maker$ruleForFile(script)
-        if (is.null(rule)) {
-          rule <- MakeRule$new(script, recipe=NULL)
-        }
-        rule$addDependences(deps)
-      }
     }
   )
 )
