@@ -118,6 +118,8 @@ Maker <- R6::R6Class(
       mtime <- as.numeric(file.mtime(file))
       if (is.null(node)) {
         if (!is.na(mtime)) return(mtime)
+        # this should not happen, i.e., the file does not exist, 
+        # but there is no corresponding node.
         stop("Internal error in making ", file, call.=FALSE)
       }
       if (is.null(node$timestamp) || is.na(node$timestamp) ||
@@ -127,26 +129,33 @@ Maker <- R6::R6Class(
         build <- TRUE
       } else if (is.null(timestamp)) {
         build <- FALSE
-      } else build <- (node$timestamp < timestamp)
-      if (build) {
+      } else if (node$timestamp < timestamp) {
+        build <- TRUE
+        node$timestamp <- timestamp
+      } else build <- FALSE
+      if (!build) 
+        return (node$timestamp)
+      recipeID <- node$recipe
+      recipe <- if (is.null(recipeID)) NULL else private$recipes[[recipeID]]
+      if (!is.null(recipe)) {
         cat("building ", file, "\n", sep="", file=stderr())
-        recipeID <- node$recipe
-        recipe <- if (is.null(recipeID)) NULL else private$recipes[[recipeID]]
-        if (is.null(recipe)) {
-          if (is.na(node$timestamp))
-            stop("Do not know how to make ", file, call.=FALSE)
-        } else {
-          tryCatch({
-            ok <- FALSE
-            if (is.function(recipe)) {
-              recipe(file, node$dependences)
-            } else if (is(recipe, "Recipe")) {
-              recipe$run(file, node$dependences)
-            }
-            ok <- TRUE
-          }, finally = if (!ok && file.exists(file)) file.remove(file))
-        }
-        node$timestamp <- as.numeric(Sys.time())
+        tryCatch({
+          ok <- FALSE
+          if (is.function(recipe)) {
+            recipe(file, node$dependences)
+          } else if (is(recipe, "Recipe")) {
+            recipe$run(file, node$dependences)
+          }
+          ok <- TRUE
+        }, finally = {
+          mtime <- file.mtime(file)
+          if (ok) {
+            node$timestamp <- if(is.na(mtime)) timestamp else mtime
+          } else {
+            if (!is.na(mtime)) file.remove(file)
+            node$timestamp <- NA
+          }
+        })
       }
       node$timestamp
     }
