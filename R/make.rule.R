@@ -170,8 +170,8 @@ match.stem = function(pattern, file) {
   # if the pattern is not an implicit rule, i.e., does not contain %, then
   # we simply compare the canonical paths of pattern and file
   if (!grepl("%", pattern)) {
-    pattern <- normalizePath(pattern, mustWork = FALSE)
-    file <- normalizePath(file, mustWork = FALSE)
+    pattern <- normalizePath(pattern)
+    file <- normalizePath(file)
     return (pattern == file)
   }
   # if we read here, then the pattern contains %, and is thus an implicit rule
