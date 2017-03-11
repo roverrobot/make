@@ -85,9 +85,9 @@ Maker <- R6::R6Class(
     #' @param file the file to scan
     #' @param node the dependence node of the file
     scan = function(file, node) {
-      node$timestamp <- file.mtime(file)
+      node$timestamp <- as.numeric(file.mtime(file))
       # scan only if file exists
-      node$auto <- if (!is.null(node$timestamp)) {
+      node$auto <- if (!is.na(node$timestamp)) {
         scanner <- scanners$get(file)
         if (!is.null(scanner)) scanner$scan(file) else c()
       } else c()
