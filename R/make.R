@@ -144,7 +144,7 @@ Maker <- R6::R6Class(
               recipe$run(file, node$dependences)
             }
             ok <- TRUE
-          }, finally = if (!ok) file.remove(file))
+          }, finally = if (!ok && file.exists(file)) file.remove(file))
         }
         node$timestamp <- as.numeric(Sys.time())
       }
