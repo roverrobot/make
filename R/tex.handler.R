@@ -15,6 +15,7 @@ texHandler <- R6::R6Class(
     matchCommand = function(command,
                             first.command = FALSE,
                             to.space=FALSE) {
+      if (is.null(private$content)) return(c())
       pattern <- paste(if (first.command) "^\\s*" else "",
                        "\\\\", command,
                        "(?:(?:\\s+",
