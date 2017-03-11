@@ -1,146 +1,285 @@
+#' split a path into a vector of components
+#' @param path the file path to split
+#' @return a vector of path components
+splitPath <- function(path) {
+  base <- basename(path)
+  if (base == "") {
+    "" 
+  } else if (base == path) {
+    path
+  } else c(splitPath(dirname(path)), base)
+}
+
+#' normalize a path
+#' @param path the path to normalize
+#' @return a vector of normalized path components
+normalizePath <- function(path) {
+  if (!isAbsolutePath(path)) path <- file.path(getwd(), path)
+  v <- splitPath(path)
+  n <- c()
+  for (p in v) {
+    if (p == ".") next
+    n <- if (p == "..") n[-length(n)] else c(n, p)
+  }
+  paste(n, collapse=.Platform$file.sep)
+}
+
 #' the Maker class is responsible for making a file.
 #' @include file.handler.R
 Maker <- R6::R6Class(
   "Maker",
-  inherit = FileHandler, 
   private = list(
-    #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
-    explicit.rules = list(),
-    #' the list of explicit make rules (i.e., the pattern of a rule does not contain %)
-    implicit.rules = list()
-  ),
-  public = list(
-    #' returns a rule for handling a file
-    #' @param file the file to make
-    #' @return a MakeRule object, or NULL if do not know how to make it.
-    ruleForFile = function(file) {
-      # search for an explicit rule for file
-      rule <- private$explicit.rules[[file]]
-      # if not found, search for an implicit rule
-      if (is.null(rule)) {
-        for (r in private$implicit.rules) {
-          result = r$canHandle(file)
-          if (result) {
-            rule <- attr(result, "rule")
+    #' the dir that this maker manages
+    dir = NULL,
+    #' the list of file nodes
+    nodes = list(),
+    #' the list of implicit make rules (i.e., the pattern of a rule does not contain %)
+    implicit = list(),
+    #' recipes, named by their recipe ID.
+    recipes = list(),
+    #' traverse the dependence graph
+    #' @param file the file to start from
+    #' @patam path the path that has traversed
+    #' @param makelist the list of files that needs to be made before file
+    #' @return a new makelist including file and all its dependences
+    traverse = function(file, path, makelist) {
+      if (file %in% path) 
+        stop("circular dependences: ", 
+             paste(c(path, file), collapse = " -> "), call.=FALSE)
+      parent <- tail(path, 1)
+      # is file already requested for make?
+      entry <- makelist[[file]]
+      if (!is.null(entry)) {
+        # mark an extra parent and 
+        if (length(parent) > 0) {
+          entry$parents = c(entry$parents, parent)
+          makelist[[file]] <- entry
+        }
+        return(makelist)
+      }
+      # traverse its dependences
+      path <- c(path, file)
+      nodes <- private$nodesForFile(file)
+      for (node in nodes) {
+        result <- makelist
+        private$scan(file, node)
+        deps <- node$dependences
+        for (dep in deps) {
+          result <- private$traverse(dep, path, result)
+          if (is.null(result)) {
+            if (dep %in% node$auto)
+              stop("File ", file, " cannot make dependence ", dep, call.=FALSE)
             break
           }
         }
-      }
-      # see if we can find a scanner for file
-      if (is.null(rule) && file.exists(file)) {
-        scanner <- scanners$get(file)
-        if (!is.null(scanner)) {
-          rule <- MakeRule$new(target=file, recipe=NULL)
+        # add file to the makelist
+        if (!is.null(result)) {
+          result[[file]] <- list(parent=parent, depend=deps)
+          private$nodes[[file]] <-node
+          return(result)
         }
       }
-      rule
+      NULL
+    },
+    #' scans for automatic dependences for a file
+    #' @param file the file to scan
+    #' @param node the dependence node of the file
+    scan = function(file, node) {
+      node$timestamp <- file.mtime(file)
+      # scan only if file exists
+      node$auto <- if (!is.null(node$timestamp)) {
+        scanner <- scanners$get(file)
+        if (!is.null(scanner)) scanner$scan(file) else c()
+      } else c()
+    },
+    #' returns a list of nodes that can handle a file
+    #' @param file the file to make
+    #' @return a list of Node object, or NULL if file does not exist and there is no rule corresponding to the file.
+    nodesForFile = function(file) {
+      # search for a previously created node for the file
+      node <- private$nodes[[file]]
+      # if not found, search for an implicit rule
+      if (!is.null(node)) return(list(node))
+      nodes <- list()
+      for (r in private$implicit) {
+        node <- r$match(file)
+        if (!is.null(node)) nodes <- c(nodes, node)
+      }
+      if (length(nodes) == 0 && file.exists(file)) {
+        list(Node$new(c(), NULL))
+      } else nodes
+    },
+    #' build a file
+    #' @param file the file to build
+    #' @param timestamp the timestamp of the dependences
+    #' @return the timestamp of the file
+    build = function(file, timestamp) {
+      node <- private$nodes[[file]]
+      mtime <- as.numeric(file.mtime(file))
+      if (is.null(node)) {
+        if (!is.na(mtime)) return(mtime)
+        stop("Internal error in making ", file, call.=FALSE)
+      }
+      if (is.null(node$timestamp) || is.na(node$timestamp) ||
+          is.na(mtime) || node$timestamp < mtime)
+        node$timestamp <- mtime
+      if (is.na(node$timestamp)) {
+        build <- TRUE
+      } else if (is.null(timestamp)) {
+        build <- FALSE
+      } else build <- (node$timestamp < timestamp)
+      if (build) {
+        cat("building ", file, "\n", sep="", file=stderr())
+        recipeID <- node$recipe
+        recipe <- if (is.null(recipeID)) NULL else private$recipes[[recipeID]]
+        if (is.null(recipe)) {
+          if (is.na(node$timestamp))
+            stop("Do not know how to make ", file, call.=FALSE)
+        } else {
+          tryCatch({
+            ok <- FALSE
+            if (is.function(recipe)) {
+              recipe(file, node$dependences)
+            } else if (is(recipe, "Recipe")) {
+              recipe$run(file, node$dependences)
+            }
+            ok <- TRUE
+          }, finally = if (!ok) file.remove(file))
+        }
+        node$timestamp <- as.numeric(Sys.time())
+      }
+      node$timestamp
     }
-    ,
+  ),
+  public = list(
     #' check if the file can be handled by this maker
-    #' 
     #' it checks if the file is in the dir (self$pattern)
     #' @param file the file to check
+    #' @return 
     canHandle = function(file) {
-      # only make files in the dir
-      abs <- normalizePath(file, mustWork = FALSE)
-      dir <- self$pattern
-      return (!isAbsolutePath(abs) || substr(abs, 1, nchar(dir)) == dir)
-    }
-    ,
+      return (substr(file, 1, nchar(private$dir)) == private$dir)
+    },
     #' make a file
     #' @param file the file to make
     #' @param force force to build the file regardless if it is stale or not.
-    #' @param silent In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE. Still complains and stop if a rule matches but failed to make the file.
-    #' @return logical. TRUE if successful, and FALSE if do not know how to make it. If the make fails, the function stops with an error.
+    #' @param silent In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE.
     make = function(file, force=FALSE, silent = FALSE) {
+      if (isAbsolutePath(file)) {
+        file <- substring(file, nchar(private$dir)+2)
+      }
       # if asked to make a list of files, make them one by one
       if (length(file) > 1) {
-        for (f in file) {
-          result <- make(f, foruce, silent)
-          if (!result) break
+        for (f in file)
+          self$make(f, foruce, silent)
+        return()
+      }
+      # traverse the tree, while issuing make commands
+      makelist <- private$traverse(file, path=c(), makelist=list())
+      if (is.null(makelist))
+        stop("Do not know how to make ", file, call.=FALSE)
+      timestamp <- NULL
+      while (length(makelist) > 0) {
+        # make all the iles with no dependences
+        pick <- sapply(makelist, function(file) { length(file$depend) == 0 })
+        if (length(which(pick)) == 0) {
+          stop("No leaf in the dependence graph!", call.=FALSE)
         }
-        return(result)
+        leaves <- makelist[pick]
+        for (leaf in names(leaves)) {
+          timestamp <- private$build(leaf, timestamp)
+          # remove leaf from each parent's dependences
+          # and update the parent's timestamp
+          for (parent in leaves[[leaf]]$parent) {
+            p <- makelist[[parent]]
+            deps <- p$depend
+            p$depend <- deps[which(deps != leaf)]
+            if (is.null(p$timestamp) || p$timestamp < timestamp)
+              p$timestamp <- timestamp
+            makelist[[parent]] <- p
+          }
+        }
+        makelist <- makelist[!pick]
       }
-      # check for circular dependence
-      making <- attr(file, "making")
-      if (is.null(making)) making <- c()
-      if (file %in% making) {
-        stop("circular dependences: ", making, " ", file, call.=FALSE)
-      }
-      attr(file, "making") <- c(making, file)
-      # only make files in the dir
-      rule <- if (self$canHandle(file)) self$ruleForFile(file) else NULL
-      # make
-      if (!is.null(rule)) {
-        result = NULL
-        result <- rule$make(file, force)
-        if (is.null(result)) stop("failed to make ", file, call.=FALSE)
-      } else {
-        result <- FALSE
-        mtime <- file.mtime(file)
-        if (!is.na(mtime)) attr(result, "timestamp") <- as.numeric(mtime)
-      }
-      if (!result) {
-        if (!is.null(attr(result, "timestamp")) || silent) 
-          return (result)
-        stop("do not know how to make file: ", file, call. = FALSE)
-      }
-      result
-    }
-    ,
+    },
     #' add a rule to the list of rules
-    #' @param rule the rule to add
-    #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
-    add.rule = function(rule, replace=FALSE) {
-      if (!is(rule, "MakeRule"))
-        stop("A rule must be an object of the class MakeRule.", call.=FALSE)
-      name <- rule$pattern
-      if (is.null(name) || length(name) == 0)
-        stop("A rule must have a target", call.=FALSE)
-      if (rule$isImplicit()) {
-        private$implicit.rules <- c(private$implicit.rules, rule)
-      } else if (is.null(private$explicit.rules[[name]]) || replace) {
-        private$explicit.rules[[name]] <- rule
-      } else stop("A rule for a target ", name, " already exits.", call.=FALSE)
+    #' @param target of the rule
+    #' @param depend the list of dependences of the target
+    #' @param recipe the recipe to make the target
+    #' @return the dependence node or the implicit rule
+    addRule = function(target, depend=c(), recipe=NULL) {
+      if (length(target) > 1) {
+        for (targ in target) self$addRule(targ, depend, recipe)
+      } else {
+        if (length(target) == 0 || target == "")
+          stop("A rule must have a target", call.=FALSE)
+        # compute the recipeID
+        recipeID <- paste(target, paste(depend, collapse="+"), sep="~")
+        if (!is.null(private$recipes[[recipeID]])) {
+          stop("The rule for ", recipeID, " already exists. Skipping it.")
+        }
+        private$recipes[[recipeID]] <- recipe
+        # check if this is an implicit rule.
+        if (grepl("%", target)) {
+          node <- ImplicitRule$new(target, depend, recipeID)
+          private$implicit[[recipeID]] <- node
+        } else {
+          node <- Node$new(depend, recipeID)
+          private$nodes[[target]] <- node
+        }
+        node
+      }
     }
     , 
     #' clear the rules
     clear = function() {
-      private$explicit.rules <- list()
-      private$implicit.rules <- list()
+      private$nodes <- list()
+      private$implicit <- list()
+      private$recipes <- list()
     }
     ,
     #' initializer
     #' @param dir the directory that this maker managers
     initialize = function(dir) {
-      if (!file.exists(dir))
+      private$dir <- normalizePath(dir)
+      if (!file.exists(private$dir))
         stop("The directory ", dir, " does not exist.", call.=FALSE)
-      self$pattern <- dir
       self$clear()
-      makefile <- file.path(dir, "Makefile.R")
-      if (file.exists(makefile))
-        try(source(makefile))
-    }
-    ,
+    },
+    #' load the rules from Makefile.R
+    load = function() {
+      makefile <- file.path(private$dir, "Makefile.R")
+      if (file.exists(makefile)) {
+        source(makefile, local=TRUE)
+      }
+    },
     #' print the maker
     print = function() {
-      cat("dir =", self$dir, "\n")
+      cat("dir =", private$dir, "\n")
       cat("explicit rules:\n")
-      for (r in private$explicit.rules)
+      for (r in names(private$nodes)) {
+        cat(r, "~ ")
+        print(private$nodes[[r]])
+      }
+      cat("\nimplicit rules:\n")
+      for (r in private$implicit) {
         print(r)
-      cat("implicit rules:\n")
-      for (r in private$implicit.rules)
-        print(r)
+      }
+      cat("\nrecipes:\n")
+      for (r in names(private$recipes)) {
+        cat(r, "= ")
+        print(private$recipes[[r]])
+      }
     }
   )
 )
 
-maker = Maker$new(getwd())
+pkg.env <- new.env()
 
 #' clear the list of rules and load from Makefile.R
 #' @export
 resetRules <- function() {
-  maker$initialize(getwd())
+  pkg.env$maker <- Maker$new(getwd())
+  pkg.env$maker$load()
 }
 
 #' tracks the files being automatically opened.
@@ -179,10 +318,12 @@ tracker <- MakeTracker$new()
 #' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
 #' @export
 make <- function(file="all", force=FALSE) {
-  if (length(maker$pattern) == 0) return (FALSE)
-  if (maker$canHandle(file)) tracker$track(file)
-  result <- FALSE
-  try(result <- maker$make(file))
-  attr(result, "timestamp") <- NULL
-  result
+  maker <- pkg.env$maker
+  if (is.null(maker)) return()
+  abs <- normalizePath(file)
+  if (maker$canHandle(abs)) {
+    tracker$track(file)
+    maker$make(file)
+  } else if (!file.exists(file)) 
+    stop("do not know how to make ", file)
 }

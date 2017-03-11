@@ -39,214 +39,118 @@ parseTarget <- function(target, env) {
   )
 }
 
-#' makeRule implements a rule that is similar to a Makefile rule
-#' @include file.handler.R
+#' the base class for make rules
+#' It is the root class for both a node and an implicit rule
+#' It has the notion of a dependence list, a recipeID, and a timestamp
 MakeRule <- R6::R6Class(
   "MakeRule",
-  inherit = FileHandler,
   private = list(
     #' a vector of dependent files
-    depend = list(),
-    #' the recipe to make the target
-    recipe = NULL,
-    #' the time stamp for last scan, -Inf if not scanned
-    timestamp = -Inf
+    depend = c(),
+    #' the recipeID for the recipe to make the target
+    recipeID = NULL
+  ),
+  active = list(
+    #' the dependences
+    dependences = function() { private$depend },
+    #' the recipeID
+    recipe = function() { private$recipeID }
   ),
   public = list(
+    #' the time stamp for last scan, NULL if not scanned
+    timestamp = NULL,
     #' initializer,
-    #' @param target a pattern or a file name
     #' @param depend the dependences, 
-    #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (the rule makes nothing and always success, after successfully checked dependences).
-    #' @param interpreter f using the first dependent file as a script, this is the interpreter to run the script.
-    #' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
-    initialize = function(target,
-                          recipe=scriptRecipe$new(interpreter=interpreter),
-                          depend=list(),
-                          interpreter = NULL,
-                          replace=FALSE) {
-      private$depend <- as.list(depend)
-      # error if no target is specified.
-      if (length(target) == 0) {
-        stop("Target ", 
-             as.character(substitute(target)), 
-             ": a target must be specified.", call.=FALSE)
-      }
-
-      if (!is(recipe, "Recipe") && !is.function(recipe) && !is.null(recipe))
-        stop("Invalid recipe.", call. = FALSE)
+    #' @param recipeID a unique recipe ID.
+    initialize = function(depend, recipeID) {
+      private$depend <- unique(depend)
+      if (!is.null(recipeID) && !is.character(recipeID))
+        stop("Invalid recipeID ", recipeID, call. = FALSE)
       # for each target, set up a rule
-      self$pattern = target[[1]]
-      private$recipe <- recipe
-      private$timestamp <- -Inf
-      maker$add.rule(self, replace)
-
-      # set up a rule for each target specified
-      for (targ in target[-1]) {
-        MakeRule$new(targ, recipe=private$recipe, depend=private$depend, 
-                 interpreter = interpreter,
-                 replace)
-      }
-    }
-    ,
-    #' canHandle checks if a rule can handle a specific file.
-    #' @param file the file to check
-    #' @return a logical indicating whether the file can be handled. In the case that it can be handled, it contains an attributed named "rule". If the rule is implicit, the returned rule is an explicit rule that can handle the file. If the rule is explicit, the returned rule is itself.
-    canHandle = function(file) {
-      result = super$canHandle(file)
-      if (result) {
-        stem <- attr(result, "stem")
-        if (is.null(stem)) {
-          attr(result, "rule") <- self
-        } else {
-          deps <- if (is.null(stem)) private$depend else sub("%", stem, private$depend)
-          # checks for missing dependences
-          for (dep in deps) {
-            if (file.exists(dep)) next
-            result <- FALSE
-            try(result <- maker$make(dep, silent = TRUE))
-            if (!result) return(FALSE)
-            dep.mtime <- attr(result, "timestamp")
-            # if dep does not exist and no rule matches to make it, then it is the wrong rule.
-            if (!result && is.null(dep.mtime)) 
-              return(FALSE)
-          }
-          attr(result, "rule") <- MakeRule$new(target = file,
-                                           recipe=private$recipe,
-                                           depend = deps,
-                                           interpreter = self$interpreter,
-                                           replace = TRUE)
-        }
-      }
-      result
-    }
-    ,
-    #' make a file
-    #' @param file the file to make
-    #' @param force force to build the file regardless if it is stale or not.
-    #' @return logical. TRUE if successful, and FALSE if do not know how to make it. If the make fails, the function stops with an error.
-    make = function(file, force = FALSE) {
-      # implicit rules cannot make a file
-      if (self$isImplicit())
-        stop("Rule ", self$patterm, " is not an explicit rule.", call.=FALSE)
-      # get the timestamp of file
-      mtime <- file.mtime(file)
-      mtime <- if (is.na(mtime)) Inf else as.numeric(mtime)
-      if (private$timestamp < mtime) {
-        private$timestamp <- if (is.infinite(mtime)) -Inf else mtime
-        self$scan()
-      }
-      # if force or file does not exist, always build.
-      mtime <- -Inf
-      making <- attr(file, "making")
-      if (is.null(making)) making <- c(file)
-      # skip staled automatic dependence
-      for (dep in private$depend) {
-        attr(dep, "making") <- making
-        result <- FALSE
-        try(result <- maker$make(dep, silent = TRUE))
-        dep.mtime <- attr(result, "timestamp")
-        # if dep does not exist and no rule matches to make it, then it is the wrong rule.
-        if (!result && is.null(dep.mtime)) 
-          stop("cannot make the dependence ", dep, call.=FALSE)
-        # if dep.time is NA but make(dep) succeeded, ignore it
-        mtime = max(mtime, dep.mtime, na.rm = TRUE)
-      }
-      if (!is.infinite(private$timestamp) && private$timestamp >= mtime) {
-        result <- TRUE
-      } else if (is.null(private$recipe)) {
-        result <- TRUE
-        private$timestamp <- mtime
-      } else {
-        tryCatch( {
-          result <- NULL
-          if (is.function(private$recipe)) {
-            private$recipe(file, private$depend)
-          } else private$recipe$run(file, private$depend)
-          result <- TRUE},
-          finally = if (is.null(result) && file.exists(file)) 
-            file.remove(file)
-        )
-        private$timestamp <- as.numeric(Sys.time())
-      }
-      if (!is.infinite(private$timestamp))
-        attr(result, "timestamp") <- private$timestamp
-      result
-    }
-    ,
-    #' scan for dependences
-    scan = function() {
-      if (self$isImplicit())
-        stop("Cannot scan an implicit target for depenences")
-      # remove the stale dependences
-      deps <- sapply(private$depend, function(dep) {
-        if (is.null(attr(dep, "timestamp"))) dep else NA})
-      private$depend <- as.list(deps[which(!is.na(deps))])
-      # if file does exists, do not scan
-      if (is.infinite(private$timestamp)) return()
-      # scan
-      scanner <- scanners$get(self$pattern)
-      if (is.null(scanner)) return()
-      self$addDependences(scanner$scan(self$pattern))
-    }
-    ,
-    #' add dependences
-    #' @param deps the dependences
-    #' @param timestamp the timestamp to be added to the deps
-    addDependences = function(deps) {
-      deps <- deps[which(!(deps %in% private$depend))]
-      for (dep in deps) {
-        attr(dep, "timestamp") <- private$timestamp
-        private$depend <- c(private$depend, dep)
-      }
-    }
-    ,
-    #' whether the rule is implicit or not
-    isImplicit = function() {
-      grepl("%", self$pattern)
-    }
-    ,
+      private$recipeID <- recipeID
+      self$timestamp <- NULL
+    },
     #' pretty print a makeRule object
     print = function() {
-      cat(self$pattern, "~")
-      if (length(private$depend) > 0) {
-        cat("", private$depend[[1]])
-        for (dep in private$depend[-1]) 
-          cat(" +", dep)
+      deps <- self$dependences
+      if (length(deps) > 0) {
+        cat(deps[[1]])
+        for (dep in deps[-1]) cat(" +", dep)
       }
-      cat("\nrecipe = ")
-      if (is.null(private$recipe)) {
-        cat("\n")
-      } else print(private$recipe)
       cat("\n")
     }
   )
 )
 
+#' a node in the dependence graph
+Node <- R6::R6Class(
+  "Node",
+  inherit = MakeRule,
+  active = list(
+    #' the dependences
+    dependences = function() { unique(c(private$depend, self$auto)) }
+  ),
+  public = list(
+    #' a vector of automatic dependences
+    auto = c()
+  )
+)
+
+#' Represents an imlicit rule
+ImplicitRule <- R6::R6Class(
+  "ImplicitRule",
+  inherit = MakeRule,
+  private = list(
+    # the pattern for handlable target files
+    pattern = NULL
+  ),
+  public = list(
+    #' initializer
+    #' @param pattern the pattern for the target files
+    #' @param depend the patterns for dependences
+    #' @param recipeID the recipe ID to generate a target
+    initialize = function(pattern, depend, recipeID) {
+      super$initialize(depend, recipeID)
+      private$pattern <- pattern
+    },
+    #' match to a file
+    #' @param file the file for which to create the rule
+    #' @return a Node object or NULL if cannot handle the file
+    match = function(file) {
+      matched <- match.stem(private$pattern, file)
+      if (!matched) return(NULL)
+      stem <- attr(matched, "stem")
+      deps <- sub("%", stem, private$depend)
+      Node$new(deps, private$recipeID)
+    },
+    #' pretty print a makeRule object
+    print = function() {
+      cat(private$pattern, "~ ")
+      super$print()
+    }
+  )
+)
 #' create a make rule
-#' @param target a formula specifying target ~ dependences, the dependences are separated by +, or a target name (string), in which case the dependences are specified by depend.
+#' @param target a formula specifying target ~ dependences, the dependences are separated by +, or a target name (string), in which case there is no dependence.
 #' @param depend the dependences, if target is formula, then depend is appended to the end of the dependences specified in the formula
 #' @param recipe a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (the rule makes nothing and always success, after successfully checked dependences).
 #' @param interpreter f using the first dependent file as a script, this is the interpreter to run the script.
-#' @param replace If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
 #' @return a MakeRule R6 object
 #' @export
 makeRule <- function(target,
-                     recipe=scriptRecipe$new(interpreter=interpreter),
-                     depend=list(),
+                     recipe=scriptRecipe$new(interpreter),
                      interpreter = NULL,
-                     replace=FALSE,
                      env = parent.frame()) {
   # parse the target
   parsed <- parseTarget(substitute(target), env)
-  
   if (is.list(parsed)) {
-    target <- parsed[[1]]
-    depend <- as.list(c(parsed[[2]], depend))
+    target <- parsed$target
+    depend <- parsed$depend
   } else {
     target <- parsed
-    depend <- as.list(depend)
+    depend <- c()
   }
-  MakeRule$new(target, recipe, depend, interpreter, replace)
+  pkg.env$maker$addRule(target, depend, recipe)
 }
 
 #' match file to patterns, which can contain a stem, e.g., dir/\%.c
@@ -257,7 +161,7 @@ match.stem = function(pattern, file) {
   # if pattern is a vector (or a list), match to each
   if (length(pattern) > 1) {
     for (pat in pattern) {
-      result = (match.stem(pat, file))
+      result = match.stem(pat, file)
       if (result) return(result)
     }
     return (FALSE)
@@ -290,7 +194,7 @@ match.stem = function(pattern, file) {
   }
   if (!match) {
     # if file does not match, check if the canonical path of file matches.
-    file.abs = normalizePath(file, mustWork = FALSE)
+    file.abs = normalizePath(file)
     if (file.abs != file)
       return(match.stem(pattern, file.abs))
     return (FALSE)
