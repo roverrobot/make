@@ -141,6 +141,7 @@ Maker <- R6::R6Class(
         cat("building ", file, "\n", sep="", file=stderr())
         tryCatch({
           ok <- FALSE
+          tracker$push()
           if (is.function(recipe)) {
             recipe(file, node$dependences)
           } else if (is(recipe, "Recipe")) {
@@ -149,8 +150,11 @@ Maker <- R6::R6Class(
           ok <- TRUE
         }, finally = {
           mtime <- file.mtime(file)
+          deps <- tracker$pop()
           if (ok) {
             node$timestamp <- if(is.na(mtime)) timestamp else mtime
+            if (length(deps) > 0)
+              node$auto <- c(node$auto, deps)
           } else {
             if (!is.na(mtime)) file.remove(file)
             node$timestamp <- NA
