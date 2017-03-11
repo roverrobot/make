@@ -138,6 +138,7 @@ ImplicitRule <- R6::R6Class(
 #' @return a MakeRule R6 object
 #' @export
 makeRule <- function(target,
+                     depend = c(),
                      recipe=scriptRecipe$new(interpreter),
                      interpreter = NULL,
                      env = parent.frame()) {
@@ -145,10 +146,9 @@ makeRule <- function(target,
   parsed <- parseTarget(substitute(target), env)
   if (is.list(parsed)) {
     target <- parsed$target
-    depend <- parsed$depend
+    depend <- c(parsed$depend, depend)
   } else {
     target <- parsed
-    depend <- c()
   }
   pkg.env$maker$addRule(target, depend, recipe)
 }
