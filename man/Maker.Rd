@@ -9,34 +9,56 @@
 Maker
 }
 \arguments{
+\item{file}{the file to start from}
+
+\item{makelist}{the list of files that needs to be made before file}
+
+\item{file}{the file to scan}
+
+\item{node}{the dependence node of the file
+returns a list of nodes that can handle a file}
+
 \item{file}{the file to make}
 
-\item{file}{the file to check
-make a file}
+\item{file}{the file to build}
+
+\item{timestamp}{the timestamp of the dependences}
+
+\item{file}{the file to check}
 
 \item{file}{the file to make}
 
 \item{force}{force to build the file regardless if it is stale or not.}
 
-\item{silent}{In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE. Still complains and stop if a rule matches but failed to make the file.}
+\item{silent}{In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE.
+add a rule to the list of rules}
 
-\item{rule}{the rule to add}
+\item{target}{of the rule}
 
-\item{replace}{If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.
-clear the rules
-initializer}
+\item{depend}{the list of dependences of the target}
+
+\item{recipe}{the recipe to make the target}
 
 \item{dir}{the directory that this maker managers
+load the rules from Makefile.R
 print the maker}
 }
 \value{
-a MakeRule object, or NULL if do not know how to make it.
-check if the file can be handled by this maker
+a new makelist including file and all its dependences
+scans for automatic dependences for a file
 
+a list of Node object, or NULL if file does not exist and there is no rule corresponding to the file.
+build a file
+
+the timestamp of the file
+check if the file can be handled by this maker
 it checks if the file is in the dir (self$pattern)
 
-logical. TRUE if successful, and FALSE if do not know how to make it. If the make fails, the function stops with an error.
-add a rule to the list of rules
+make a file
+
+the dependence node or the implicit rule
+clear the rules
+initializer
 }
 \description{
 the Maker class is responsible for making a file.

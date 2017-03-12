@@ -4,20 +4,17 @@
 \alias{makeRule}
 \title{create a make rule}
 \usage{
-makeRule(target, recipe = scriptRecipe$new(interpreter = interpreter),
-  depend = list(), interpreter = NULL, replace = FALSE,
-  env = parent.frame())
+makeRule(target, depend = c(), recipe = scriptRecipe$new(interpreter),
+  interpreter = NULL, env = parent.frame())
 }
 \arguments{
-\item{target}{a formula specifying target ~ dependences, the dependences are separated by +, or a target name (string), in which case the dependences are specified by depend.}
-
-\item{recipe}{a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (the rule makes nothing and always success, after successfully checked dependences).}
+\item{target}{a formula specifying target ~ dependences, the dependences are separated by +, or a target name (string), in which case there is no dependence.}
 
 \item{depend}{the dependences, if target is formula, then depend is appended to the end of the dependences specified in the formula}
 
-\item{interpreter}{f using the first dependent file as a script, this is the interpreter to run the script.}
+\item{recipe}{a recipe to make the target, either an R function(target, depend), or a Recipe object, or NULL (the rule makes nothing and always success, after successfully checked dependences).}
 
-\item{replace}{If TRUE, it replaces the rule to make the same target. If FALSE, and a rule to make the same target exists, it complains and fail.}
+\item{interpreter}{f using the first dependent file as a script, this is the interpreter to run the script.}
 }
 \value{
 a MakeRule R6 object
