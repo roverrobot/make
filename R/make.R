@@ -174,9 +174,7 @@ Maker <- R6::R6Class(
     },
     #' make a file
     #' @param file the file to make
-    #' @param force force to build the file regardless if it is stale or not.
-    #' @param silent In the case that no rule matches, complain and stop if TRUE, or silently return if FALSE.
-    make = function(file, force=FALSE, silent = FALSE) {
+    make = function(file) {
       if (isAbsolutePath(file)) {
         file <- substring(file, nchar(private$dir)+2)
       }
@@ -328,12 +326,13 @@ tracker <- MakeTracker$new()
 #' make a file
 #' @param file the file to make
 #' @param force force to build the file regardless if it is stale or not.
-#' @return TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
+#' @return none
 #' @export
 make <- function(file="all", force=FALSE) {
   maker <- pkg.env$maker
   if (is.null(maker)) return()
   abs <- normalizePath(file)
+  if (force && file.exists(abs)) file.remove(abs)
   if (maker$canHandle(abs)) {
     tracker$track(file)
     maker$make(file)
