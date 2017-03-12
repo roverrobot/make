@@ -87,10 +87,20 @@ Maker <- R6::R6Class(
     scan = function(file, node) {
       node$timestamp <- as.numeric(file.mtime(file))
       # scan only if file exists
-      node$auto <- if (!is.na(node$timestamp)) {
+      if (is.na(node$timestamp)) {
+        node$auto <- c()
+      } else {
+        auto.time <- attr(node$auto, "timestamp")
+        if (!is.null(auto.time) && auto.time > node$timestamp)
+          return()
         scanner <- scanners$get(file)
-        if (!is.null(scanner)) scanner$scan(file) else c()
-      } else c()
+        if (is.null(scanner)) {
+          node$auto <- c()
+        } else {
+          node$auto <- scanner$scan(file)
+          attr(node$auto, "timestamp") <- node$timestamp
+        }
+      }
     },
     #' returns a list of nodes that can handle a file
     #' @param file the file to make
@@ -153,8 +163,13 @@ Maker <- R6::R6Class(
           deps <- tracker$pop()
           if (ok) {
             node$timestamp <- if(is.na(mtime)) timestamp else mtime
-            if (length(deps) > 0)
+            if (length(deps) > 0) {
+              auto.time <- attr(node$auto, "timestamp")
+              if (is.null(auto.time) || auto.time < mtime)
+                private$scan(file, node)
               node$auto <- c(node$auto, deps)
+              attr(node$auto, "timestamp") <- mtime
+            }
           } else {
             if (!is.na(mtime)) file.remove(file)
             node$timestamp <- NA
