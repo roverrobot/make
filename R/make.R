@@ -39,7 +39,7 @@ Maker <- R6::R6Class(
     recipes = list(),
     #' traverse the dependence graph
     #' @param file the file to start from
-    #' @patam path the path that has traversed
+    #' @param path the path that has traversed
     #' @param makelist the list of files that needs to be made before file
     #' @return a new makelist including file and all its dependences
     traverse = function(file, path, makelist) {

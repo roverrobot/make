@@ -11,6 +11,8 @@ Maker
 \arguments{
 \item{file}{the file to start from}
 
+\item{path}{the path that has traversed}
+
 \item{makelist}{the list of files that needs to be made before file}
 
 \item{file}{the file to scan}
