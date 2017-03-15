@@ -33,7 +33,7 @@ Maker <- R6::R6Class(
     dir = NULL,
     #' the list of file nodes
     nodes = list(),
-    #' the list of implicit make rules (i.e., the pattern of a rule does not contain %)
+    #' the list of implicit make rules (i.e., the pattern of a rule contains %)
     implicit = list(),
     #' recipes, named by their recipe ID.
     recipes = list(),
