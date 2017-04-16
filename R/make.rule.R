@@ -15,27 +15,21 @@ Recipe <- R6::R6Class(
 #' @param target an expression
 #' @return a target and its dependences
 parseTarget <- function(target, env) {
-  # vlist evaluates a list of variables in v, 
-  vlist <- function(v) {
-    sapply(v, function(var) {eval(as.name(var), envir=env)})
-  }
-  l <- as.list(target)
   switch (
     class(target),
     call = {
-      first <- parseTarget(l[[2]], env)
-      if (length(l) > 2) second <- parseTarget(l[[3]], env)
+      first <- parseTarget(target[[2]], env)
+      if (length(target) > 2) second <- parseTarget(target[[3]], env)
       switch (
-        as.character(l[[1]]),
+        as.character(target[[1]]),
         "~" = return(list(target=first, depend=second)),
         "+" = return(c(first, second)),
         "/" = return(paste(c(first, second), collapse = .Platform$file.sep)),
         ":" = return(paste(first, second, sep = ":"))
       )
     },
-    name = return(if (l[[1]]==".") c() else as.character(l[[1]])),
-    character = return(as.character(l[[1]])),
-    "(" = return(vlist(parseTarget(l[[2]], env)))
+    name = return(if (target==".") c() else as.character(target)),
+    "(" = return(eval(target[[2]], env))
   )
 }
 
@@ -143,12 +137,9 @@ makeRule <- function(target,
                      interpreter = NULL,
                      env = parent.frame()) {
   # parse the target
-  parsed <- parseTarget(substitute(target), env)
-  if (is.list(parsed)) {
-    target <- parsed$target
-    depend <- c(parsed$depend, depend)
-  } else {
-    target <- parsed
+  if (is(target, "formula")) {
+    depend <- c(parseTarget(target[[3]], env), depend)
+    target <- parseTarget(target[[2]], env)
   }
   pkg.env$maker$addRule(target, depend, recipe)
 }
