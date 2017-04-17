@@ -1,31 +1,7 @@
-#' split a path into a vector of components
-#' @param path the file path to split
-#' @return a vector of path components
-splitPath <- function(path) {
-  base <- basename(path)
-  if (base == "") {
-    "" 
-  } else if (base == path) {
-    path
-  } else c(splitPath(dirname(path)), base)
-}
-
-#' normalize a path
-#' @param path the path to normalize
-#' @return a vector of normalized path components
-normalizePath <- function(path) {
-  if (!isAbsolutePath(path)) path <- file.path(getwd(), path)
-  v <- splitPath(path)
-  n <- c()
-  for (p in v) {
-    if (p == ".") next
-    n <- if (p == "..") n[-length(n)] else c(n, p)
-  }
-  paste(n, collapse=.Platform$file.sep)
-}
+#' @include file.handler.R
+#' @include filepath.R
 
 #' the Maker class is responsible for making a file.
-#' @include file.handler.R
 Maker <- R6::R6Class(
   "Maker",
   private = list(

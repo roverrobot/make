@@ -12,6 +12,7 @@ LazyData: true
 Imports: R6
 Collate: 
     'file.handler.R'
+    'filepath.R'
     'hooks.R'
     'make.R'
     'make.rule.R'

@@ -1,3 +1,5 @@
+#' @include filepath.R
+
 #' this class processes a TeX/LaTeX file
 texHandler <- R6::R6Class(
   "texHandler",
@@ -131,14 +133,6 @@ texCompiler <- R6::R6Class(
 )
 
 texCompiler$new()
-
-#' checks if a path is an absolute path
-#' @param path the path to check
-#' @return logical
-isAbsolutePath <- function(path) {
-  pattern <- if (.Platform$file.sep == "/") "^(/|~)" else "^([A-Za-z]:)?\\\\"
-  grepl(pattern, path)
-}
 
 #' this class defines a TeX/LaTeX file scanner for automatic dependences
 texScanner <- R6::R6Class(
