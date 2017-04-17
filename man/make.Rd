@@ -12,7 +12,7 @@ make(file = "all", force = FALSE)
 \item{force}{force to build the file regardless if it is stale or not.}
 }
 \value{
-TRUE if successful, FALSE is failed, and NULL if do not know how to make it.
+none
 }
 \description{
 make a file
