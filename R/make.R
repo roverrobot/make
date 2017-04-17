@@ -166,14 +166,14 @@ Maker <- R6::R6Class(
     #' make a file
     #' @param file the file to make
     make = function(file) {
-      if (isAbsolutePath(file)) {
-        file <- substring(file, nchar(private$dir)+2)
-      }
       # if asked to make a list of files, make them one by one
       if (length(file) > 1) {
         for (f in file)
-          self$make(f, foruce, silent)
+          self$make(f)
         return()
+      }
+      if (isAbsolutePath(file)) {
+        file <- substring(file, nchar(private$dir)+2)
       }
       # traverse the tree, while issuing make commands
       makelist <- private$traverse(file, path=c(), makelist=list())
